@@ -1,0 +1,24 @@
+# --- Datos ---
+# La carpeta de entrada se versiona vacía: solo se conserva el .gitkeep
+data/entrada/*
+!data/entrada/.gitkeep
+data/raw/
+# JSON de datos reales (los de configuración fuera de data/ sí se versionan)
+data/**/*.json
+
+# --- MLflow ---
+mlruns/
+mlflow.db
+
+# --- Volúmenes y datos locales de Docker ---
+docker/volumes/
+docker/data/
+*.env.local
+
+# --- Varios ---
+.DS_Store
+Thumbs.db
+__pycache__/
+.ipynb_checkpoints/
+.vscode/
+.idea/

@@ -1,0 +1,4 @@
+# En Windows, Git no debe convertir a CRLF los ficheros que se leen dentro de Linux.
+*.sh  text eol=lf
+*.env text eol=lf
+*.yml text eol=lf
