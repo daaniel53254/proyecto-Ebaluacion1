@@ -1,0 +1,70 @@
+Pipeline iniciado: 2026-11-19 08:54:43
+
+== 1/6 Entorno ==
+[OK] HDFS, YARN y Hive responden
+
+== 2/6 Preparación (preparar.py) ==
+Persona ander -> persona_744b89e7
+  Streaming_History_Audio_2019.json:    2388 filas,   1.93 MB
+  Streaming_History_Audio_2020.json:    9695 filas,   7.84 MB
+  Streaming_History_Audio_2021.json:    7746 filas,   6.30 MB
+  Streaming_History_Audio_2022.json:    9594 filas,   7.37 MB
+  Streaming_History_Audio_2023.json:   16416 filas,  12.42 MB
+  Streaming_History_Audio_2023_1.json:   16432 filas,  12.42 MB
+  Streaming_History_Audio_2023_2.json:    4422 filas,   3.35 MB
+  Streaming_History_Audio_2024.json:   16438 filas,  12.43 MB
+  Streaming_History_Audio_2024_1.json:   16426 filas,  12.42 MB
+  Streaming_History_Audio_2024_2.json:   16461 filas,  12.43 MB
+  Streaming_History_Audio_2024_3.json:    6483 filas,   4.90 MB
+  Streaming_History_Audio_2025.json:   16435 filas,  12.42 MB
+  Streaming_History_Audio_2025_1.json:   16445 filas,  12.43 MB
+  Streaming_History_Audio_2025_2.json:   16362 filas,  12.42 MB
+  Streaming_History_Audio_2025_3.json:   16268 filas,  12.41 MB
+  Streaming_History_Audio_2025_4.json:   11063 filas,   8.44 MB
+  Streaming_History_Audio_2026.json:   16336 filas,  12.41 MB
+  Streaming_History_Audio_2026_1.json:   16473 filas,  12.43 MB
+  Streaming_History_Audio_2026_2.json:   16486 filas,  12.43 MB
+  Streaming_History_Audio_2026_3.json:   14632 filas,  11.04 MB
+Persona daniel -> persona_358ed916
+  Streaming_History_Audio_2020.json:     510 filas,   0.40 MB
+  Streaming_History_Audio_2021.json:    1442 filas,   1.14 MB
+  Streaming_History_Audio_2022.json:    3877 filas,   3.04 MB
+  Streaming_History_Audio_2023.json:    6928 filas,   5.32 MB
+  Streaming_History_Audio_2024.json:   16148 filas,  12.39 MB
+  Streaming_History_Audio_2024_1.json:    2406 filas,   1.86 MB
+  Streaming_History_Audio_2025.json:   16161 filas,  12.39 MB
+  Streaming_History_Audio_2025_1.json:   12901 filas,   9.90 MB
+  Streaming_History_Audio_2026.json:   16170 filas,  12.39 MB
+  Streaming_History_Audio_2026_1.json:    9077 filas,   6.96 MB
+Total: 348621 filas, 266.0 MB de origen, 223.0 MB preparados
+[OK] Manifiesto: 348621 filas
+
+== 3/6 Ingesta en bruto en HDFS (/bronze/spotify/historial) ==
+52.7 M   52.7 M   /bronze/spotify/historial/persona=persona_358ed916
+160.0 M  160.0 M  /bronze/spotify/historial/persona=persona_744b89e7
+[OK] 30 ficheros, 223046871 bytes en /bronze/spotify/historial
+
+== 4/6 Hive: bronze.historial ==
+Filas por persona en bronze:
+  persona_358ed916	85620
+  persona_744b89e7	263001
+[OK] bronze.historial: 348621 filas
+
+== 5/6 Hive: silver.reproducciones (Parquet) ==
+Reparto de clases en silver:
+  completa	89120
+  interrumpida	69527
+  salto_rapido	133206
+  salto_tardio	33718
+  vuelve_atras	15044
+13.4 M  13.4 M  /silver/reproducciones
+[OK] silver.reproducciones: 340615 filas
+
+== 6/6 Comprobaciones ==
+[OK] Tamaño en HDFS: 223046871 bytes > 2 MB
+[OK] Filas en bronze.historial = filas del manifiesto (348621)
+[OK] persona_358ed916: 85620 filas >= 3000
+[OK] persona_744b89e7: 263001 filas >= 3000
+[OK] silver.reproducciones: 340615 filas (8006 descartadas: no música, 0 ms o duplicadas)
+
+Pipeline completado en 184 s. Log: docs/evidencias/pipeline_20261119_085443.log

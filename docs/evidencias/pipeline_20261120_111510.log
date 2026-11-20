@@ -1,0 +1,109 @@
+Pipeline iniciado: 2026-11-20 11:15:11
+
+== 1/9 Entorno ==
+[OK] HDFS, YARN y Hive responden
+
+== 2/9 Preparación (preparar.py) ==
+Persona ander -> persona_744b89e7
+  Streaming_History_Audio_2019.json:    2388 filas,   1.93 MB
+  Streaming_History_Audio_2020.json:    9695 filas,   7.84 MB
+  Streaming_History_Audio_2021.json:    7746 filas,   6.30 MB
+  Streaming_History_Audio_2022.json:    9594 filas,   7.37 MB
+  Streaming_History_Audio_2023.json:   16416 filas,  12.42 MB
+  Streaming_History_Audio_2023_1.json:   16432 filas,  12.42 MB
+  Streaming_History_Audio_2023_2.json:    4422 filas,   3.35 MB
+  Streaming_History_Audio_2024.json:   16438 filas,  12.43 MB
+  Streaming_History_Audio_2024_1.json:   16426 filas,  12.42 MB
+  Streaming_History_Audio_2024_2.json:   16461 filas,  12.43 MB
+  Streaming_History_Audio_2024_3.json:    6483 filas,   4.90 MB
+  Streaming_History_Audio_2025.json:   16435 filas,  12.42 MB
+  Streaming_History_Audio_2025_1.json:   16445 filas,  12.43 MB
+  Streaming_History_Audio_2025_2.json:   16362 filas,  12.42 MB
+  Streaming_History_Audio_2025_3.json:   16268 filas,  12.41 MB
+  Streaming_History_Audio_2025_4.json:   11063 filas,   8.44 MB
+  Streaming_History_Audio_2026.json:   16336 filas,  12.41 MB
+  Streaming_History_Audio_2026_1.json:   16473 filas,  12.43 MB
+  Streaming_History_Audio_2026_2.json:   16486 filas,  12.43 MB
+  Streaming_History_Audio_2026_3.json:   14632 filas,  11.04 MB
+Persona daniel -> persona_358ed916
+  Streaming_History_Audio_2020.json:     510 filas,   0.40 MB
+  Streaming_History_Audio_2021.json:    1442 filas,   1.14 MB
+  Streaming_History_Audio_2022.json:    3877 filas,   3.04 MB
+  Streaming_History_Audio_2023.json:    6928 filas,   5.32 MB
+  Streaming_History_Audio_2024.json:   16148 filas,  12.39 MB
+  Streaming_History_Audio_2024_1.json:    2406 filas,   1.86 MB
+  Streaming_History_Audio_2025.json:   16161 filas,  12.39 MB
+  Streaming_History_Audio_2025_1.json:   12901 filas,   9.90 MB
+  Streaming_History_Audio_2026.json:   16170 filas,  12.39 MB
+  Streaming_History_Audio_2026_1.json:    9077 filas,   6.96 MB
+Total: 348621 filas, 266.0 MB de origen, 223.0 MB preparados
+[OK] Manifiesto: 348621 filas limpias
+
+== 3/9 Ensuciado reproducible (ensuciar.py, semilla 42) ==
+Problema                                   persona_744b89e7  persona_358ed916
+ 1 Filas duplicadas                    3%              7885              2564
+ 2 Fechas en otros formatos            5%             13142              4274
+ 3 Canciones sin metadatos             4%             10513              3419
+ 4 ms_played imposible                 2%              5145              1698
+ 5 Nombres de artista inconsistentes   5%             13142              4274
+ 6 reason_end con variantes            3%              7623              2359
+ 7 Reproducciones de 0 ms              2%              5257              1709
+ 8 Booleanos como texto                3%              7885              2564
+Total tras ensuciar: 359070 filas (registro en ensuciado.json)
+[OK] Manifiesto actualizado: 359070 filas tras ensuciar
+
+== 4/9 Ingesta en bruto en HDFS (/bronze) ==
+54.3 M   54.3 M   /bronze/spotify/historial/persona=persona_358ed916
+164.6 M  164.6 M  /bronze/spotify/historial/persona=persona_744b89e7
+[OK] Historial: 30 ficheros, 229546881 bytes en /bronze/spotify/historial
+[AVISO] No hay CSV en data/entrada/kaggle/: se omite la ingesta de Kaggle
+
+== 5/9 Hive: tablas bronze ==
+Filas por persona en bronze.historial:
+  persona_358ed916	88184
+  persona_744b89e7	270886
+[OK] bronze.historial: 359070 filas
+
+== 6/9 Hive: silver.reproducciones (limpieza, Parquet) ==
+Reparto de clases en silver:
+  completa	86479
+  interrumpida	67381
+  salto_rapido	128963
+  salto_tardio	32750
+  vuelve_atras	14593
+12.5 M  12.5 M  /silver/reproducciones
+[OK] silver.reproducciones: 330166 filas
+
+== 7/9 Hive: gold.objetivo1 y gold.candidatas (Parquet) ==
+  gold.objetivo1:  85105 filas; con >= 5 escuchas: 19927 (lote 1: 11319, lote 2: 8608)
+  gold.candidatas: 249072 filas (10378 canciones); conocidas: 143964; con tasa real lote 1: 11319
+2.1 M  2.1 M  /gold/spotify/candidatas
+2.3 M  2.3 M  /gold/spotify/objetivo1
+[OK] gold.objetivo1 y gold.candidatas creadas
+
+== 8/9 Comprobaciones ==
+[OK] Tamaño en HDFS: 229546881 bytes > 2 MB
+[OK] Filas en bronze.historial = filas del manifiesto (359070)
+[OK] persona_358ed916: 88184 filas >= 3000
+[OK] persona_744b89e7: 270886 filas >= 3000
+Problemas del ensuciado (filas afectadas en bronze -> en silver):
+  1_duplicados                        12044 -> 0
+  2_fechas_otro_formato               17950 -> 0
+  3_sin_metadatos                     14357 -> 0
+  4_ms_imposible                       3441 -> 0
+  5_artista_mal_escrito               42538 -> 0
+  5_canciones_varias_grafias           4614 -> 0
+  6_reason_end_fuera_vocabulario      10258 -> 0
+  7_ms_cero                           13427 -> 0
+  8_booleano_como_texto                8091 -> 0
+[OK] Los 8 problemas del ensuciado desaparecen en silver
+[OK] silver.reproducciones: 330166 filas (28904 descartadas: no música, 0 ms, negativas, duplicadas o sin metadatos)
+[OK] gold.objetivo1 tiene filas fiables en el lote 1 (11319) y en el lote 2 (8608)
+
+== 9/9 Exportación a CSV (data/dataset/) ==
+  spotify_reproducciones.csv         330166 filas, 22 columnas
+  gold_objetivo1.csv                 85105 filas, 23 columnas
+  gold_candidatas.csv                249072 filas, 25 columnas
+[OK] CSV en data/dataset/ (leer en pandas con encoding="utf-8-sig")
+
+Pipeline completado en 1155 s. Log: docs/evidencias/pipeline_20261120_111510.log

@@ -3,6 +3,9 @@
 data/entrada/*
 !data/entrada/.gitkeep
 data/raw/
+data/dataset/
+data/.tmp_pipeline/
+data/.pipeline_en_marcha/
 # JSON de datos reales (los de configuración fuera de data/ sí se versionan)
 data/**/*.json
 
@@ -22,3 +25,8 @@ __pycache__/
 .ipynb_checkpoints/
 .vscode/
 .idea/
+
+# --- Exportaciones de Spotify sin procesar (datos personales) ---
+Spotify Extended Streaming History/
+*Spotify*.zip
+*spotify*.zip

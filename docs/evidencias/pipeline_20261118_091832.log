@@ -1,0 +1,77 @@
+Pipeline iniciado: 2026-11-18 09:18:33
+
+== 1/6 Entorno ==
+[OK] HDFS, YARN y Hive responden
+
+== 2/6 Preparación (preparar.py) ==
+Persona ander -> persona_744b89e7
+  Streaming_History_Audio_2019.json:    2388 filas,   1.93 MB
+  Streaming_History_Audio_2020.json:    9695 filas,   7.84 MB
+  Streaming_History_Audio_2021.json:    7746 filas,   6.30 MB
+  Streaming_History_Audio_2022.json:    9594 filas,   7.37 MB
+  Streaming_History_Audio_2023.json:   16416 filas,  12.42 MB
+  Streaming_History_Audio_2023_1.json:   16432 filas,  12.42 MB
+  Streaming_History_Audio_2023_2.json:    4422 filas,   3.35 MB
+  Streaming_History_Audio_2024.json:   16438 filas,  12.43 MB
+  Streaming_History_Audio_2024_1.json:   16426 filas,  12.42 MB
+  Streaming_History_Audio_2024_2.json:   16461 filas,  12.43 MB
+  Streaming_History_Audio_2024_3.json:    6483 filas,   4.90 MB
+  Streaming_History_Audio_2025.json:   16435 filas,  12.42 MB
+  Streaming_History_Audio_2025_1.json:   16445 filas,  12.43 MB
+  Streaming_History_Audio_2025_2.json:   16362 filas,  12.42 MB
+  Streaming_History_Audio_2025_3.json:   16268 filas,  12.41 MB
+  Streaming_History_Audio_2025_4.json:   11063 filas,   8.44 MB
+  Streaming_History_Audio_2026.json:   16336 filas,  12.41 MB
+  Streaming_History_Audio_2026_1.json:   16473 filas,  12.43 MB
+  Streaming_History_Audio_2026_2.json:   16486 filas,  12.43 MB
+  Streaming_History_Audio_2026_3.json:   14632 filas,  11.04 MB
+Total: 263001 filas, 200.2 MB de origen, 167.7 MB preparados
+[OK] Manifiesto: 263001 filas
+
+== 3/6 Ingesta en bruto en HDFS (/bronze/spotify/historial) ==
+2026-11-18 08:18:58,253 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:18:58,457 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:18:59,613 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:00,494 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:00,985 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:02,031 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:02,910 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:03,562 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:04,382 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:05,775 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:06,788 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:07,497 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:09,385 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:10,188 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:11,273 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:12,129 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:13,371 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:14,555 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:15,093 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:16,340 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+2026-11-18 08:19:19,642 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+160.0 M  160.0 M  /bronze/spotify/historial/persona=persona_744b89e7
+[OK] 20 ficheros, 167734985 bytes en /bronze/spotify/historial
+
+== 4/6 Hive: bronze.historial ==
+Filas por persona en bronze:
+  persona_744b89e7	263001
+[OK] bronze.historial: 263001 filas
+
+== 5/6 Hive: silver.reproducciones (Parquet) ==
+Reparto de clases en silver:
+  completa	33480
+  interrumpida	52276
+  salto_rapido	127269
+  salto_tardio	28103
+  vuelve_atras	14646
+9.6 M  9.6 M  /silver/reproducciones
+[OK] silver.reproducciones: 255774 filas
+
+== 6/6 Comprobaciones ==
+[OK] Tamaño en HDFS: 167734985 bytes > 2 MB
+[OK] Filas en bronze.historial = filas del manifiesto (263001)
+[OK] persona_744b89e7: 263001 filas >= 3000
+[OK] silver.reproducciones: 255774 filas (7227 descartadas: no música, 0 ms o duplicadas)
+
+Pipeline completado en 161 s. Log: docs/evidencias/pipeline_20261118_091832.log
