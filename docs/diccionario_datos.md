@@ -113,8 +113,16 @@ Una fila por **persona × canción × contexto × lote**, donde contexto = `fran
 con al menos 5 escuchas: 19.927 (lote 1: 11.319, lote 2: 8.608).
 
 **Regla clave:** ninguna variable sale de las escuchas de esa canción por esa misma persona. Todas
-se calculan con el lote 1 (el pasado) y restan las escuchas de la propia canción, así que sirven
-igual para las filas del lote 2 y para canciones nuevas.
+se calculan con el lote 1 (el pasado), así que sirven igual para las filas del lote 2 y para
+canciones nuevas.
+
+**Sin tasas que resten la propia canción.** Hasta el 20 de noviembre, las tasas de persona, contexto,
+artista y álbum restaban las escuchas de la canción a un total fijo (leave-one-out). Dentro de una
+persona lo único que movía esas variables era la propia canción, así que llevaban escondida la
+etiqueta: `per_tasa_no_salto` solo variaba en la tercera cifra decimal y tenía una correlación de -0,6
+con `tasa_no_salto` en el lote 1. Ahora las tasas de persona y contexto son totales (constantes) y del
+artista y el álbum solo hay recuentos: su tasa la calcula la etapa de IA fuera de pliegue, a partir de
+`n_escuchas` y `n_no_salto`.
 
 | Columna | Tipo | Bloque | Descripción |
 |---|---|---|---|
@@ -127,12 +135,11 @@ igual para las filas del lote 2 y para canciones nuevas.
 | `fiable` | INT | Filtro | 1 si `n_escuchas` ≥ 5. Entrenar y evaluar solo con `fiable = 1` |
 | `art_n_escuchas` | BIGINT | B | Escuchas de la persona a ese artista, sin contar esta canción |
 | `art_n_canciones` | BIGINT | B | Otras canciones del artista que ha escuchado la persona |
-| `art_tasa_no_salto` | DOUBLE | B | Tasa de no salto de la persona con ese artista, sin esta canción. Nula si no lo conoce |
 | `art_conocido` | INT | B | 1 si la persona ha escuchado otras canciones del artista |
-| `alb_n_escuchas`, `alb_tasa_no_salto` | BIGINT, DOUBLE | B' (nuevo) | Lo mismo con el álbum |
-| `per_tasa_no_salto` | DOUBLE | E | Tasa de no salto general de la persona, sin esta canción |
+| `alb_n_escuchas` | BIGINT | B' (nuevo) | Escuchas de la persona a ese álbum, sin contar esta canción |
+| `per_tasa_no_salto` | DOUBLE | E | Tasa de no salto total de la persona en el lote 1 (constante por persona) |
 | `per_pct_shuffle` | DOUBLE | E | Proporción de escuchas en aleatorio de la persona |
-| `per_tasa_no_salto_ctx` | DOUBLE | E' | Tasa de la persona en ese contexto, sin las escuchas de esta canción en ese contexto |
+| `per_tasa_no_salto_ctx` | DOUBLE | E' | Tasa total de la persona en ese contexto en el lote 1 (constante por persona y contexto) |
 | `grp_n_escuchas`, `grp_tasa_no_salto` | BIGINT, DOUBLE | G (nuevo) | Escuchas y tasa de la canción en el resto del grupo (sin la propia persona) |
 
 Sin Kaggle desaparecen los bloques A (contenido de la canción), C (género, que venía de Kaggle) y
@@ -144,7 +151,7 @@ historial.
 Entrada del recomendador (objetivo 2): **cada persona × cada canción que alguien del grupo escuchó
 en el lote 1 × cada contexto**. Filas: 249.072 (10.378 canciones × personas × contextos).
 
-Tiene las mismas variables que `gold.objetivo1` (columnas `art_*`, `alb_*`, `per_*`, `grp_*`), así
+Tiene las mismas variables que `gold.objetivo1` (columnas `art_*`, `alb_n_escuchas`, `per_*`, `grp_*`), así
 que el modelo del objetivo 1 puede predecir directamente sobre ella, y además:
 
 | Columna | Tipo | Descripción |

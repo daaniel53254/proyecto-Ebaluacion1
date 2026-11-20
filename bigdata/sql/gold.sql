@@ -7,8 +7,16 @@
 --                    real del lote 1 y la del lote 2 (para evaluar) y la duración de la canción.
 --
 -- Regla clave (sección 6 del informe): ninguna variable sale de las escuchas de esa misma canción
--- por esa misma persona. Todas se calculan con el lote 1 (antes del 1 de julio de 2025) y restan
--- las escuchas de la propia canción, así que sirven igual para filas del lote 1 y del lote 2.
+-- por esa misma persona. Todas se calculan con el lote 1 (antes del 1 de julio de 2025).
+--
+-- Sin tasas «restando la propia canción» (leave-one-out): si a un total fijo se le restan las
+-- escuchas de la canción, lo único que mueve la variable dentro de la persona es esa canción, y la
+-- etiqueta queda escondida en ella (correlación de -0,6 en el lote 1). Por eso:
+--   - per_tasa_no_salto y per_tasa_no_salto_ctx son la tasa TOTAL de la persona (y del contexto):
+--     una constante por persona o por persona y contexto, que no puede filtrar nada.
+--   - Del artista y del álbum solo hay recuentos de escuchas. Su tasa de no salto se calcula fuera
+--     de pliegue en la etapa de IA, a partir de n_escuchas y n_no_salto de gold.objetivo1.
+--   - grp_* sale de las escuchas de los OTROS miembros: no contiene la etiqueta de la persona.
 -- Sin Kaggle, los bloques A (contenido) y D (distancia al gusto) no existen, y el C (género)
 -- tampoco, porque el género venía de Kaggle.
 
@@ -42,10 +50,6 @@ CREATE TABLE gold_tmp.pt STORED AS PARQUET AS          -- persona × canción
 SELECT persona, track_id, COUNT(*) AS n, SUM(no_salto) AS ns
 FROM silver.reproducciones WHERE lote = 1 GROUP BY persona, track_id;
 
-CREATE TABLE gold_tmp.ptc STORED AS PARQUET AS         -- persona × canción × contexto
-SELECT persona, track_id, franja, tipo_dia, COUNT(*) AS n, SUM(no_salto) AS ns
-FROM silver.reproducciones WHERE lote = 1 GROUP BY persona, track_id, franja, tipo_dia;
-
 CREATE TABLE gold_tmp.pa STORED AS PARQUET AS          -- persona × artista
 SELECT persona, artista, COUNT(*) AS n, SUM(no_salto) AS ns, COUNT(DISTINCT track_id) AS nc
 FROM silver.reproducciones WHERE lote = 1 GROUP BY persona, artista;
@@ -77,26 +81,20 @@ SELECT DISTINCT persona, track_id, franja, tipo_dia FROM (
   CROSS JOIN (SELECT DISTINCT franja, tipo_dia FROM silver.reproducciones) cx
 ) u;
 
--- Variables de entrada, sin contar las escuchas de la propia canción por la propia persona
+-- Variables de entrada (sin tasas leave-one-out: ver la cabecera)
 CREATE TABLE gold_tmp.variables STORED AS PARQUET AS
 SELECT k.persona, k.track_id, k.franja, k.tipo_dia,
-       -- B. Persona con el artista
+       -- B. Persona con el artista: solo recuentos, sin contar esta canción
        COALESCE(pa.n, 0) - COALESCE(pt.n, 0) AS art_n_escuchas,
        COALESCE(pa.nc, 0) - CASE WHEN pt.n IS NULL THEN 0 ELSE 1 END AS art_n_canciones,
-       CASE WHEN COALESCE(pa.n, 0) - COALESCE(pt.n, 0) > 0
-            THEN (pa.ns - COALESCE(pt.ns, 0)) / (pa.n - COALESCE(pt.n, 0)) END AS art_tasa_no_salto,
        CASE WHEN COALESCE(pa.n, 0) - COALESCE(pt.n, 0) > 0 THEN 1 ELSE 0 END AS art_conocido,
-       -- B'. Persona con el álbum (nueva, sustituye en parte al contenido de Kaggle)
+       -- B'. Persona con el álbum: solo recuentos, sin contar esta canción
        COALESCE(palb.n, 0) - COALESCE(pt.n, 0) AS alb_n_escuchas,
-       CASE WHEN COALESCE(palb.n, 0) - COALESCE(pt.n, 0) > 0
-            THEN (palb.ns - COALESCE(pt.ns, 0)) / (palb.n - COALESCE(pt.n, 0)) END AS alb_tasa_no_salto,
-       -- E. Persona en general
-       CASE WHEN p.n - COALESCE(pt.n, 0) > 0
-            THEN (p.ns - COALESCE(pt.ns, 0)) / (p.n - COALESCE(pt.n, 0)) END AS per_tasa_no_salto,
+       -- E. Persona en general: tasa total del lote 1, constante por persona
+       p.ns / p.n AS per_tasa_no_salto,
        p.pct_shuffle AS per_pct_shuffle,
-       -- E'. Persona en el contexto
-       CASE WHEN pc.n - COALESCE(ptc.n, 0) > 0
-            THEN (pc.ns - COALESCE(ptc.ns, 0)) / (pc.n - COALESCE(ptc.n, 0)) END AS per_tasa_no_salto_ctx,
+       -- E'. Persona en el contexto: tasa total del lote 1, constante por persona y contexto
+       pc.ns / pc.n AS per_tasa_no_salto_ctx,
        -- G. La canción en el resto del grupo (nueva)
        COALESCE(gt.n, 0) - COALESCE(pt.n, 0) AS grp_n_escuchas,
        CASE WHEN COALESCE(gt.n, 0) - COALESCE(pt.n, 0) > 0
@@ -105,8 +103,6 @@ FROM gold_tmp.claves k
 JOIN gold_tmp.canciones c ON c.track_id = k.track_id
 LEFT JOIN gold_tmp.p p ON p.persona = k.persona
 LEFT JOIN gold_tmp.pt pt ON pt.persona = k.persona AND pt.track_id = k.track_id
-LEFT JOIN gold_tmp.ptc ptc ON ptc.persona = k.persona AND ptc.track_id = k.track_id
-                          AND ptc.franja = k.franja AND ptc.tipo_dia = k.tipo_dia
 LEFT JOIN gold_tmp.pa pa ON pa.persona = k.persona AND pa.artista = c.artista
 LEFT JOIN gold_tmp.palb palb ON palb.persona = k.persona AND palb.artista = c.artista AND palb.album = c.album
 LEFT JOIN gold_tmp.pc pc ON pc.persona = k.persona AND pc.franja = k.franja AND pc.tipo_dia = k.tipo_dia
@@ -118,8 +114,8 @@ CREATE TABLE gold.objetivo1 STORED AS PARQUET AS
 SELECT e.persona, e.track_id, c.cancion, c.artista, c.album, e.franja, e.tipo_dia, e.lote,
        e.n_escuchas, e.n_no_salto, e.n_no_salto / e.n_escuchas AS tasa_no_salto,
        CASE WHEN e.n_escuchas >= 5 THEN 1 ELSE 0 END AS fiable,
-       v.art_n_escuchas, v.art_n_canciones, v.art_tasa_no_salto, v.art_conocido,
-       v.alb_n_escuchas, v.alb_tasa_no_salto, v.per_tasa_no_salto, v.per_pct_shuffle,
+       v.art_n_escuchas, v.art_n_canciones, v.art_conocido,
+       v.alb_n_escuchas, v.per_tasa_no_salto, v.per_pct_shuffle,
        v.per_tasa_no_salto_ctx, v.grp_n_escuchas, v.grp_tasa_no_salto
 FROM gold_tmp.etiquetas e
 JOIN gold_tmp.canciones c ON c.track_id = e.track_id
@@ -136,8 +132,8 @@ SELECT v.persona, v.track_id, c.cancion, c.artista, c.album, c.duracion_ms, v.fr
        COALESCE(l2.n_escuchas, 0) AS n_lote2,
        CASE WHEN l2.n_escuchas >= 5 THEN l2.n_no_salto / l2.n_escuchas END AS tasa_real_lote2,
        p.ns / p.n AS per_tasa_media,
-       v.art_n_escuchas, v.art_n_canciones, v.art_tasa_no_salto, v.art_conocido,
-       v.alb_n_escuchas, v.alb_tasa_no_salto, v.per_tasa_no_salto, v.per_pct_shuffle,
+       v.art_n_escuchas, v.art_n_canciones, v.art_conocido,
+       v.alb_n_escuchas, v.per_tasa_no_salto, v.per_pct_shuffle,
        v.per_tasa_no_salto_ctx, v.grp_n_escuchas, v.grp_tasa_no_salto
 FROM gold_tmp.variables v
 JOIN gold_tmp.gt gt ON gt.track_id = v.track_id
