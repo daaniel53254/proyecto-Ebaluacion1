@@ -30,3 +30,6 @@ __pycache__/
 Spotify Extended Streaming History/
 *Spotify*.zip
 *spotify*.zip
+
+# --- Entorno virtual de Python ---
+.venv/

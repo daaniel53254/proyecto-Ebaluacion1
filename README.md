@@ -47,6 +47,7 @@ proyecto-Ebaluacion1/
 │       ├── silver.sql            limpieza de los 8 problemas y columnas derivadas
 │       ├── gold.sql              gold.objetivo1 y gold.candidatas
 │       └── validar_limpieza.sql  cada problema contado en bronze y en silver
+├── panel/                  panel v1 en Streamlit (app.py, datos.py; ver panel/README.md)
 ├── notebooks/              notebooks de la etapa de IA
 ├── docs/
 │   ├── diccionario_datos.md  columnas, tipos y cifras de cada capa
