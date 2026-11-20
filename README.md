@@ -3,16 +3,19 @@
 Entorno local en Docker para la parte de Big Data del proyecto (especialidad de IA y Big Data).
 Solo se usa Hadoop y su ecosistema: **HDFS, YARN y Hive**. No se usa PySpark. Se incluye además un servidor de **MLflow** para el seguimiento de experimentos.
 
+> **¿Primera vez?** Sigue la [guía de instalación](INSTALACION.md) o ejecuta directamente `bash instalar.sh` desde la raíz del repositorio: comprueba requisitos, arranca todo y lo valida.
+
 ## Índice
 
 1. [Requisitos](#requisitos)
 2. [Estructura del repositorio](#estructura-del-repositorio)
 3. [Arrancar el entorno](#arrancar-el-entorno)
 4. [Validar el entorno](#validar-el-entorno)
-5. [Parar el entorno](#parar-el-entorno)
-6. [Puertos y URLs](#puertos-y-urls)
-7. [Uso básico](#uso-básico)
-8. [Problemas frecuentes](#problemas-frecuentes)
+5. [Flujo de datos automatizado](#flujo-de-datos-automatizado)
+6. [Parar el entorno](#parar-el-entorno)
+7. [Puertos y URLs](#puertos-y-urls)
+8. [Uso básico](#uso-básico)
+9. [Problemas frecuentes](#problemas-frecuentes)
 
 ## Requisitos
 
@@ -34,9 +37,25 @@ proyecto-Ebaluacion1/
 │   ├── docker-compose.yml  definición de los servicios
 │   └── hadoop.env          configuración de Hadoop y Hive
 ├── bigdata/
-│   └── validar_entorno.sh  comprobación de todo el entorno
+│   ├── validar_entorno.sh  comprobación de todo el entorno
+│   ├── preparar.py         quita datos personales y pasa los historiales a JSON Lines
+│   ├── ensuciar.py         introduce los problemas 1 a 8 del plan de ensuciado (semilla 42)
+│   ├── kaggle_ddl.py       genera las tablas bronze de Kaggle a partir de la cabecera de cada CSV
+│   ├── exportar.py         pasa la salida de beeline a CSV con comillas para los notebooks
+│   ├── pipeline.sh         flujo automatizado: preparar -> ensuciar -> bronze -> silver -> gold -> CSV
+│   └── sql/
+│       ├── silver.sql            limpieza de los 8 problemas y columnas derivadas
+│       ├── gold.sql              gold.objetivo1 y gold.candidatas
+│       └── validar_limpieza.sql  cada problema contado en bronze y en silver
+├── panel/                  panel v1 en Streamlit (app.py, datos.py; ver panel/README.md)
+├── notebooks/              notebooks de la etapa de IA
+├── docs/
+│   ├── diccionario_datos.md  columnas, tipos y cifras de cada capa
+│   └── evidencias/           log de cada ejecución del pipeline
 └── data/
-    └── entrada/            aquí se dejan los JSON preparados (no se suben a Git)
+    ├── raw/<persona>/      historiales de Spotify tal como llegan (no se suben a Git)
+    ├── entrada/            JSON preparados y CSV de Kaggle que ve el namenode como /entrada (no se suben a Git)
+    └── dataset/            CSV de silver y gold exportados para los notebooks (no se suben a Git)
 ```
 
 La carpeta `mlruns/` la crea Docker al arrancar y guarda los artefactos de MLflow. Está excluida de Git.
@@ -75,6 +94,32 @@ El script hace cinco comprobaciones y se detiene en la primera que falle:
 5. Comprueba que MLflow responde en `http://localhost:5000`.
 
 Al terminar borra el archivo de prueba, tanto en `data/entrada` como en HDFS. Las carpetas `/bronze`, `/silver`, `/gold` y la base de datos `bronze` se conservan.
+
+## Flujo de datos automatizado
+
+1. Cada miembro descomprime su ZIP del historial ampliado de Spotify y copia los `Streaming_History_Audio_*.json` en `data/raw/<su_nombre>/`. Esa carpeta no se sube a Git.
+2. Opcional: los CSV de Kaggle (`spotify_tracks.csv`, `spotify_1m_tracks.csv`) en `data/entrada/kaggle/`. Si no están, el pipeline se salta su ingesta.
+3. Con el entorno arrancado, desde la raíz del repositorio:
+
+```bash
+bash bigdata/pipeline.sh
+```
+
+El script hace nueve pasos y se detiene en el primero que falle (unos 20 minutos):
+
+1. Comprueba que HDFS, YARN y Hive están sanos.
+2. `preparar.py` elimina los campos personales (`ip_addr`, `conn_country`, `username`...), sustituye el nombre por un seudónimo estable (`persona_<hash>`) y escribe cada fichero en JSON Lines en `data/entrada/historial/persona=<seudonimo>/`, junto a un `manifiesto.json` con filas y bytes medidos.
+3. `ensuciar.py` introduce los problemas 1 a 8 del plan de ensuciado con semilla 42 y deja el registro de filas tocadas en `data/entrada/ensuciado.json`.
+4. Sube los ficheros en bruto a `/bronze/spotify/historial/` y, si están, los CSV de Kaggle a `/bronze/kaggle/`.
+5. Crea las tablas externas `bronze.historial` (JsonSerDe, una partición por persona) y `bronze.kaggle_*` (CSV).
+6. `sql/silver.sql` crea `silver.reproducciones` en Parquet: limpia los 8 problemas y añade hora local (Europe/Madrid), franja de 4 h, tipo de día, lote (corte el 1 de julio de 2025) y `no_salto`.
+7. `sql/gold.sql` crea `gold.objetivo1` (persona × canción × contexto × lote, con la tasa de no salto y las variables sin fuga) y `gold.candidatas` (entrada del recomendador).
+8. Comprueba que bronze ocupa más de 2 MB, que Hive cuenta las mismas filas que el manifiesto, que cada persona tiene al menos 3.000 y que los 8 problemas del ensuciado quedan a 0 en silver.
+9. Exporta silver y gold a CSV en `data/dataset/` para los notebooks.
+
+Las columnas de cada tabla están en [docs/diccionario_datos.md](docs/diccionario_datos.md).
+
+Es idempotente: al añadir el historial de otra persona basta con volver a lanzarlo. La salida completa queda en `docs/evidencias/pipeline_<fecha>.log`.
 
 ## Parar el entorno
 
@@ -129,4 +174,6 @@ En PowerShell: `$env:MLFLOW_TRACKING_URI = "http://localhost:5000"`.
 - **`open //./pipe/dockerDesktopLinuxEngine`**: Docker Desktop no está arrancado. Ábrelo y espera a que el icono indique que está en marcha.
 - **Un puerto ya está en uso**: cierra el programa que lo ocupa o cambia el número de la izquierda en `ports:` del `docker-compose.yml`. En macOS el puerto 5000 lo suele ocupar el receptor de AirPlay.
 - **Un contenedor no pasa a `healthy`**: mira sus registros con `docker compose logs -f <servicio>`.
+- **`Ya hay un pipeline en marcha`**: solo puede ejecutarse uno a la vez. Si se apagó el equipo a mitad, borra la carpeta `data/.pipeline_en_marcha` y vuelve a lanzarlo.
+- **`GC overhead limit exceeded` en un trabajo de Hive**: cada map y reduce necesita más memoria que la que da Hadoop por defecto; los ficheros de `bigdata/sql/` ya la suben a 1,5 GB con `SET mapreduce.*.memory.mb`.
 - **`$'\r': command not found` al ejecutar el script**: el fichero tiene saltos de línea de Windows. El `.gitattributes` lo evita al clonar; si aun así ocurre, conviértelo con `sed -i 's/\r$//' bigdata/validar_entorno.sh`.

@@ -6,6 +6,7 @@ services:
   # ---------------------------------------------------------------- HDFS
   namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    platform: linux/amd64
     container_name: namenode
     hostname: namenode
     restart: unless-stopped
@@ -27,6 +28,7 @@ services:
 
   datanode:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    platform: linux/amd64
     container_name: datanode
     hostname: datanode
     restart: unless-stopped
@@ -48,6 +50,7 @@ services:
   # ---------------------------------------------------------------- YARN
   resourcemanager:
     image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
+    platform: linux/amd64
     container_name: resourcemanager
     hostname: resourcemanager
     restart: unless-stopped
@@ -70,6 +73,7 @@ services:
 
   nodemanager:
     image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
+    platform: linux/amd64
     container_name: nodemanager
     hostname: nodemanager
     restart: unless-stopped
@@ -89,6 +93,7 @@ services:
   # ---------------------------------------------------------------- Hive
   hive-metastore-postgresql:
     image: bde2020/hive-metastore-postgresql:2.3.0
+    platform: linux/amd64
     container_name: hive-metastore-postgresql
     hostname: hive-metastore-postgresql
     restart: unless-stopped
@@ -103,6 +108,7 @@ services:
 
   hive-metastore:
     image: bde2020/hive:2.3.2-postgresql-metastore
+    platform: linux/amd64
     container_name: hive-metastore
     hostname: hive-metastore
     restart: unless-stopped
@@ -126,6 +132,7 @@ services:
 
   hiveserver2:
     image: bde2020/hive:2.3.2-postgresql-metastore
+    platform: linux/amd64
     container_name: hiveserver2
     hostname: hiveserver2
     restart: unless-stopped
