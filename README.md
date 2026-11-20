@@ -12,10 +12,11 @@ Solo se usa Hadoop y su ecosistema: **HDFS, YARN y Hive**. No se usa PySpark. Se
 3. [Arrancar el entorno](#arrancar-el-entorno)
 4. [Validar el entorno](#validar-el-entorno)
 5. [Flujo de datos automatizado](#flujo-de-datos-automatizado)
-6. [Parar el entorno](#parar-el-entorno)
-7. [Puertos y URLs](#puertos-y-urls)
-8. [Uso básico](#uso-básico)
-9. [Problemas frecuentes](#problemas-frecuentes)
+6. [Notebooks de IA](#notebooks-de-ia)
+7. [Parar el entorno](#parar-el-entorno)
+8. [Puertos y URLs](#puertos-y-urls)
+9. [Uso básico](#uso-básico)
+10. [Problemas frecuentes](#problemas-frecuentes)
 
 ## Requisitos
 
@@ -48,7 +49,7 @@ proyecto-Ebaluacion1/
 │       ├── gold.sql              gold.objetivo1 y gold.candidatas
 │       └── validar_limpieza.sql  cada problema contado en bronze y en silver
 ├── panel/                  panel v1 en Streamlit (app.py, datos.py; ver panel/README.md)
-├── notebooks/              notebooks de la etapa de IA
+├── notebooks/              notebooks de la etapa de IA (01 revisión, 02 EDA, 03 modelos base)
 ├── docs/
 │   ├── diccionario_datos.md  columnas, tipos y cifras de cada capa
 │   └── evidencias/           log de cada ejecución del pipeline
@@ -120,6 +121,28 @@ El script hace nueve pasos y se detiene en el primero que falle (unos 20 minutos
 Las columnas de cada tabla están en [docs/diccionario_datos.md](docs/diccionario_datos.md).
 
 Es idempotente: al añadir el historial de otra persona basta con volver a lanzarlo. La salida completa queda en `docs/evidencias/pipeline_<fecha>.log`.
+
+## Notebooks de IA
+
+Los notebooks leen los CSV que deja el pipeline en `data/dataset/` (silver y gold) y los CSV de Kaggle. Se ejecutan en orden:
+
+| Notebook | Qué hace |
+| --- | --- |
+| `notebooks/01_revision_datos.ipynb` | Revisión de calidad del dataset de Kaggle, cobertura del cruce con los historiales y prueba de si el audio predice el gusto (Ridge). |
+| `notebooks/02_eda.ipynb` | Análisis exploratorio de silver y gold: hábitos por persona, franja y tipo de día, distribución de la tasa de no salto y diferencias entre lotes. |
+| `notebooks/03_modelos_base.ipynb` | Modelos base de los dos objetivos con MLflow: objetivo 1 (regresión de la tasa de no salto: dos modelos base, Ridge y Gradient Boosting, validación con `GroupKFold` por canción y test en el lote 2) y objetivo 2 (recomendador de grupo frente a "las más escuchadas", N = 20, 50 y 100). Guarda `recomendador_gustos.csv` para el panel. |
+
+**En local (Anaconda o venv):** `pip install pandas numpy scikit-learn matplotlib mlflow` y abre los notebooks desde la raíz del repositorio con el pipeline ya ejecutado.
+
+**En Google Colab:** los notebooks descargan los CSV de gold desde la carpeta compartida `Proyecto_Ebal1/datasets` de Drive (hace falta tener el acceso directo en "Mi unidad").
+
+**MLflow:** el notebook 03 registra los experimentos `objetivo1_tasa_no_salto` y `objetivo2_recomendador` en una base SQLite (`mlflow.db`). Para verlos:
+
+```bash
+mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5055
+```
+
+y abre `http://localhost:5055`. Con el Docker arrancado también se puede apuntar a `http://localhost:5000`.
 
 ## Parar el entorno
 
