@@ -33,3 +33,6 @@ Spotify Extended Streaming History/
 
 # --- Entorno virtual de Python ---
 .venv/
+
+# --- API: modelo y tablas generados por python -m api.preparar_datos ---
+api/datos/

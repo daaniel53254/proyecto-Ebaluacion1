@@ -13,10 +13,11 @@ Solo se usa Hadoop y su ecosistema: **HDFS, YARN y Hive**. No se usa PySpark. Se
 4. [Validar el entorno](#validar-el-entorno)
 5. [Flujo de datos automatizado](#flujo-de-datos-automatizado)
 6. [Notebooks de IA](#notebooks-de-ia)
-7. [Parar el entorno](#parar-el-entorno)
-8. [Puertos y URLs](#puertos-y-urls)
-9. [Uso básico](#uso-básico)
-10. [Problemas frecuentes](#problemas-frecuentes)
+7. [API (FastAPI)](#api-fastapi)
+8. [Parar el entorno](#parar-el-entorno)
+9. [Puertos y URLs](#puertos-y-urls)
+10. [Uso básico](#uso-básico)
+11. [Problemas frecuentes](#problemas-frecuentes)
 
 ## Requisitos
 
@@ -131,6 +132,8 @@ Los notebooks leen los CSV que deja el pipeline en `data/dataset/` (silver y gol
 | `notebooks/01_revision_datos.ipynb` | Revisión de calidad del dataset de Kaggle, cobertura del cruce con los historiales y prueba de si el audio predice el gusto (Ridge). |
 | `notebooks/02_eda.ipynb` | Análisis exploratorio de silver y gold: hábitos por persona, franja y tipo de día, distribución de la tasa de no salto y diferencias entre lotes. |
 | `notebooks/03_modelos_base.ipynb` | Modelos base de los dos objetivos con MLflow: objetivo 1 (regresión de la tasa de no salto: dos modelos base, Ridge y Gradient Boosting, validación con `GroupKFold` por canción y test en el lote 2) y objetivo 2 (recomendador de grupo frente a "las más escuchadas", N = 20, 50 y 100). Guarda `recomendador_gustos.csv` para el panel. |
+| `notebooks/04_drift.ipynb` | Data drift y model drift con el lote 2 (PSI, calibración mensual, error por trimestre), comparación de políticas de reentrenamiento y estrategia de monitorización. Experimento `drift` en MLflow. |
+| `notebooks/05_modelos_finales.ipynb` | Modelos finales del objetivo 1: búsqueda de hiperparámetros, análisis de errores y registro de modelos en MLflow (`playlist_tasa_no_salto`, alias `produccion` y `anterior`). |
 
 **En local (Anaconda o venv):** `pip install pandas numpy scikit-learn matplotlib mlflow` y abre los notebooks desde la raíz del repositorio con el pipeline ya ejecutado.
 
@@ -143,6 +146,32 @@ mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5055
 ```
 
 y abre `http://localhost:5055`. Con el Docker arrancado también se puede apuntar a `http://localhost:5000`.
+
+## API (FastAPI)
+
+La carpeta `api/` sirve los dos objetivos:
+
+| Endpoint | Qué hace |
+| --- | --- |
+| `POST /objetivo1/prediccion` | Tasa de no salto prevista para persona × canción × contexto (hasta 1.000 filas). El contexto se da con `franja` (0-5) y `tipo_dia`, o con `fecha_hora`. |
+| `POST /objetivo2/playlist` | Playlist del grupo en un contexto: percentil del gusto de cada miembro, mínimo del grupo y desempate por la media. Admite `n`, `duracion_min` y `excluir_artistas`. |
+| `GET /salud`, `/modelo`, `/personas`, `/contextos` | Estado, modelo cargado (versión y origen), miembros y contextos válidos. |
+
+Los datos de entrada se validan (Pydantic) y los errores devuelven siempre `{"error": ..., "detalle": ...}`: 422 si la entrada no es válida, 404 si la persona o la canción no existen y 503 si el modelo no está cargado. La documentación interactiva está en `http://localhost:8000/docs`.
+
+**Arrancar** (desde la raíz del repositorio, con los historiales en `data/entrada/historial/`):
+
+```bash
+pip install -r api/requirements.txt
+python -m api.preparar_datos                 # modelo + tablas en api/datos/ (unos 10 s)
+uvicorn api.main:app --port 8000
+```
+
+En Windows con Anaconda basta con hacer doble clic en `api/arrancar_api.bat`.
+
+**Qué modelo usa.** `preparar_datos` entrena la configuración de la versión de producción del registro de MLflow (`playlist_tasa_no_salto@produccion`: Gradient Boosting con pérdida absoluta y la ventana de 18 meses) en el mismo entorno donde corre la API, porque un modelo guardado solo se puede cargar con la misma versión de scikit-learn. Si hay un servidor de MLflow accesible (variable `MLFLOW_TRACKING_URI`, por ejemplo `http://localhost:5000` con el Docker levantado), la API carga directamente esa versión del registro; `/salud` dice de dónde ha salido. Para reentrenar con los 18 meses más recientes (política del notebook 04): `python -m api.preparar_datos --hasta 2026-11-01`.
+
+**Pruebas:** `python -m pytest api -q` (usan datos sintéticos; no necesitan los historiales ni MLflow).
 
 ## Parar el entorno
 

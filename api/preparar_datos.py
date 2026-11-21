@@ -1,0 +1,110 @@
+"""Prepara lo que necesita la API: modelo del objetivo 1 y tablas de variables.
+
+Uso (desde la raíz del repositorio):
+    python -m api.preparar_datos
+    python -m api.preparar_datos --hasta 2026-11-01      # reentrenar con los 18 meses más recientes
+
+Lee los historiales de data/entrada/historial/<persona>/ y escribe en api/datos/:
+    modelo.joblib     modelo de producción entrenado aquí con la configuración registrada en MLflow
+    recuentos.csv.gz  escuchas y no saltos por persona × canción × contexto del periodo
+    catalogo.csv.gz   canciones candidatas (nombre, artista, álbum, duración estimada)
+    personas.csv      miembros, % de modo aleatorio y tasa de no salto del periodo
+    info.json         periodo, hiperparámetros y métricas de la preparación
+
+Por qué se vuelve a entrenar aquí: el modelo registrado en MLflow se entrenó en Colab y un .joblib solo
+se puede cargar con la misma versión de scikit-learn. Con la misma configuración y los mismos datos se
+obtiene el mismo modelo en el entorno donde corre la API. Si hay un servidor de MLflow accesible
+(variable MLFLOW_TRACKING_URI), la API usa directamente la versión con el alias «produccion».
+"""
+import argparse
+import json
+from datetime import datetime
+from pathlib import Path
+
+import joblib
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_absolute_error
+from sklearn.model_selection import GroupKFold
+
+from api.caracteristicas import MIN_ESCUCHAS, ZONA, leer_historiales, recuentos, tabla, variables_oof
+
+RAIZ = Path(__file__).resolve().parent.parent
+SALIDA = Path(__file__).resolve().parent / "datos"
+
+# Configuración de la versión de producción del notebook 05 (registrada en MLflow como playlist_tasa_no_salto@produccion)
+HIPERPARAMETROS = {"learning_rate": 0.05, "max_iter": 150, "max_leaf_nodes": 7, "min_samples_leaf": 80, "l2_regularization": 1.0}
+PESOS_SQRT_N = False
+SEMILLA = 42
+
+
+def preparar(historial: Path, hasta: str, meses: int, salida: Path) -> dict:
+    h = leer_historiales(historial)
+    fin = pd.Timestamp(hasta, tz=ZONA)
+    inicio = fin - pd.DateOffset(months=meses)
+    periodo = h[(h["hora_local"] >= inicio) & (h["hora_local"] < fin)]
+    if periodo.empty:
+        raise SystemExit(f"No hay escuchas entre {inicio:%Y-%m-%d} y {fin:%Y-%m-%d}")
+
+    # Entrenamiento: filas fiables con variables fuera de pliegue, igual que en el notebook 05
+    t = tabla(periodo, periodo)
+    t = t[t["n_escuchas"] >= MIN_ESCUCHAS].reset_index(drop=True)
+    src = recuentos(periodo)
+    X = variables_oof(t, src)
+    y = t["tasa_no_salto"].to_numpy()
+    pesos = np.sqrt(t["n_escuchas"].to_numpy()) if PESOS_SQRT_N else None
+
+    pred = np.zeros(len(t))
+    for tr, va in GroupKFold(5).split(X, groups=t["track_id"]):
+        m = HistGradientBoostingRegressor(loss="absolute_error", random_state=SEMILLA, **HIPERPARAMETROS)
+        m.fit(X.iloc[tr], y[tr], sample_weight=None if pesos is None else pesos[tr])
+        pred[va] = np.clip(m.predict(X.iloc[va]), 0, 1)
+    modelo = HistGradientBoostingRegressor(loss="absolute_error", random_state=SEMILLA, **HIPERPARAMETROS)
+    modelo.fit(X, y, sample_weight=pesos)
+
+    # Tablas para servir
+    salida.mkdir(parents=True, exist_ok=True)
+    src.to_csv(salida / "recuentos.csv.gz", index=False)
+    terminadas = periodo[periodo["reason_end"] == "trackdone"].groupby("track_id")["ms_played"].median()
+    catalogo = (periodo.groupby("track_id")
+                .agg(cancion=("cancion", "first"), artista=("artista", "first"), album=("album", "first"),
+                     escuchas_grupo=("no_salto", "size"))
+                .join((terminadas / 1000).round().rename("duracion_s")))
+    catalogo["duracion_s"] = catalogo["duracion_s"].fillna(periodo.groupby("track_id")["ms_played"].max() / 1000).round()
+    catalogo.reset_index().to_csv(salida / "catalogo.csv.gz", index=False)
+    personas = periodo.groupby("persona").agg(escuchas=("no_salto", "size"), tasa_no_salto=("no_salto", "mean"),
+                                              per_pct_shuffle=("shuffle", "mean"))
+    personas.reset_index().to_csv(salida / "personas.csv", index=False)
+
+    info = {
+        "modelo": "GB absoluto (HistGradientBoostingRegressor, loss=absolute_error)",
+        "registro_mlflow": "playlist_tasa_no_salto@produccion",
+        "hiperparametros": HIPERPARAMETROS, "pesos_sqrt_n": PESOS_SQRT_N,
+        "periodo": {"desde": f"{inicio:%Y-%m-%d}", "hasta": f"{fin - pd.Timedelta(days=1):%Y-%m-%d}", "meses": meses},
+        "filas_entrenamiento": int(len(t)), "cv_mae": float(mean_absolute_error(y, pred)),
+        "columnas": list(X.columns), "personas": personas.index.tolist(), "canciones_catalogo": int(len(catalogo)),
+        "preparado": datetime.now().isoformat(timespec="seconds"),
+    }
+    joblib.dump({"modelo": modelo, "columnas": list(X.columns), "info": info}, salida / "modelo.joblib")
+    with open(salida / "info.json", "w", encoding="utf-8") as f:
+        json.dump(info, f, ensure_ascii=False, indent=1)
+    return info
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--historial", type=Path, default=RAIZ / "data" / "entrada" / "historial")
+    ap.add_argument("--hasta", default="2025-07-01",
+                    help="fin (no incluido) del periodo; por defecto el de la versión registrada (inicio del lote 2)")
+    ap.add_argument("--meses", type=int, default=18, help="longitud de la ventana (política del notebook 04)")
+    ap.add_argument("--salida", type=Path, default=SALIDA)
+    a = ap.parse_args()
+    info = preparar(a.historial, a.hasta, a.meses, a.salida)
+    print(f"Periodo {info['periodo']['desde']} a {info['periodo']['hasta']} · {info['filas_entrenamiento']} filas · "
+          f"MAE de validación {info['cv_mae']:.3f} · {info['canciones_catalogo']} canciones · personas: {', '.join(info['personas'])}")
+    print("Datos de la API en", a.salida)
+
+
+if __name__ == "__main__":
+    main()
