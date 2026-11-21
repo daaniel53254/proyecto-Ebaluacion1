@@ -149,29 +149,31 @@ y abre `http://localhost:5055`. Con el Docker arrancado también se puede apunta
 
 ## API (FastAPI)
 
-La carpeta `api/` sirve los dos objetivos:
+La carpeta `api/` es el servicio completo: **cada persona sube el .zip de su historial de Spotify y, con todos los historiales subidos, la API genera el resto** (variables, modelo del objetivo 1, catálogo y playlists del objetivo 2).
 
 | Endpoint | Qué hace |
 | --- | --- |
+| `POST /historiales` | Sube el .zip del «Extended streaming history» de una persona (formulario con `persona`, `consentimiento` y `archivo`). Guarda solo los `Streaming_History_Audio_*.json` y, de ellos, los campos de escucha (sin IP ni país) en `data/entrada/historial/<persona>/`, la misma carpeta que ingiere `pipeline.sh`. Después reentrena en segundo plano con todos los historiales. |
+| `GET /preparacion` | Estado del reentrenamiento: `en_curso`, `lista` o `error` (con el motivo). |
+| `GET /historiales`, `DELETE /historiales/{persona}` | Personas subidas; borrar los datos de una persona (derecho de supresión del RGPD) y reentrenar sin ellos. |
 | `POST /objetivo1/prediccion` | Tasa de no salto prevista para persona × canción × contexto (hasta 1.000 filas). El contexto se da con `franja` (0-5) y `tipo_dia`, o con `fecha_hora`. |
 | `POST /objetivo2/playlist` | Playlist del grupo en un contexto: percentil del gusto de cada miembro, mínimo del grupo y desempate por la media. Admite `n`, `duracion_min` y `excluir_artistas`. |
-| `GET /salud`, `/modelo`, `/personas`, `/contextos` | Estado, modelo cargado (versión y origen), miembros y contextos válidos. |
+| `GET /salud`, `/modelo`, `/personas`, `/contextos` | Estado, modelo cargado, miembros y contextos válidos. |
 
-Los datos de entrada se validan (Pydantic) y los errores devuelven siempre `{"error": ..., "detalle": ...}`: 422 si la entrada no es válida, 404 si la persona o la canción no existen y 503 si el modelo no está cargado. La documentación interactiva está en `http://localhost:8000/docs`.
+Los datos de entrada se validan (Pydantic y comprobación del zip: formato, tamaño, nombres de fichero) y los errores devuelven siempre `{"error": ..., "detalle": ...}`: 422 si la entrada no es válida, 404 si la persona o la canción no existen, 413 si el fichero es demasiado grande y 503 si el modelo no está listo. La documentación interactiva, desde donde también se puede subir el zip, está en `http://localhost:8000/docs`.
 
-**Arrancar** (desde la raíz del repositorio, con los historiales en `data/entrada/historial/`):
+**Arrancar** (desde la raíz del repositorio):
 
 ```bash
 pip install -r api/requirements.txt
-python -m api.preparar_datos                 # modelo + tablas en api/datos/ (unos 10 s)
 uvicorn api.main:app --port 8000
 ```
 
-En Windows con Anaconda basta con hacer doble clic en `api/arrancar_api.bat`.
+En Windows con Anaconda basta con hacer doble clic en `api/arrancar_api.bat`. Si al arrancar ya hay historiales en `data/entrada/historial/` y no hay modelo, la API lo prepara sola (unos 10 segundos con los dos historiales del equipo). También se puede preparar a mano con `python -m api.preparar_datos`.
 
-**Qué modelo usa.** `preparar_datos` entrena la configuración de la versión de producción del registro de MLflow (`playlist_tasa_no_salto@produccion`: Gradient Boosting con pérdida absoluta y la ventana de 18 meses) en el mismo entorno donde corre la API, porque un modelo guardado solo se puede cargar con la misma versión de scikit-learn. Si hay un servidor de MLflow accesible (variable `MLFLOW_TRACKING_URI`, por ejemplo `http://localhost:5000` con el Docker levantado), la API carga directamente esa versión del registro; `/salud` dice de dónde ha salido. Para reentrenar con los 18 meses más recientes (política del notebook 04): `python -m api.preparar_datos --hasta 2026-11-01`.
+**Qué modelo usa.** Cada preparación entrena la configuración de la versión de producción del registro de MLflow (`playlist_tasa_no_salto@produccion`: Gradient Boosting con pérdida absoluta) con los **últimos 18 meses** de los historiales subidos, que es la política de reentrenamiento del notebook 04. Se entrena en el mismo entorno que la API porque cambian las personas con cada subida y porque un modelo guardado solo se puede cargar con la misma versión de scikit-learn. Para reproducir exactamente el periodo de la versión registrada: `python -m api.preparar_datos --hasta 2025-07-01`.
 
-**Pruebas:** `python -m pytest api -q` (usan datos sintéticos; no necesitan los historiales ni MLflow).
+**Pruebas:** `python -m pytest api -q` (datos sintéticos: no necesitan los historiales reales ni MLflow).
 
 ## Parar el entorno
 

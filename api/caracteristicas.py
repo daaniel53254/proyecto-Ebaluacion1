@@ -22,7 +22,7 @@ NOMBRES_FRANJA = ["0-4h", "4-8h", "8-12h", "12-16h", "16-20h", "20-24h"]
 def leer_historiales(carpeta_historial: Path) -> pd.DataFrame:
     """Lee data/entrada/historial/<persona>/*.json con la limpieza mínima de silver (como el notebook 04)."""
     partes = []
-    for carpeta in sorted(p for p in Path(carpeta_historial).iterdir() if p.is_dir()):
+    for carpeta in sorted(p for p in Path(carpeta_historial).iterdir() if p.is_dir() and not p.name.startswith(".")):
         filas = []
         for f in sorted(glob.glob(str(carpeta / "**" / "Streaming_History_Audio_*.json"), recursive=True)):
             with open(f, encoding="utf-8") as fh:

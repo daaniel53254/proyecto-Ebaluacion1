@@ -9,8 +9,12 @@ import api.main as main  # noqa: E402
 
 
 @pytest.fixture(scope="module")
-def cliente(carpeta_datos):
-    main.CARPETA_DATOS = carpeta_datos
+def cliente(carpeta_datos, tmp_path_factory):
+    import shutil
+    base = tmp_path_factory.mktemp("api_http")
+    shutil.copytree(carpeta_datos, base / "datos")
+    shutil.copytree(carpeta_datos.parent / "historial", base / "historial")
+    main.CARPETA_DATOS, main.CARPETA_HISTORIAL = base / "datos", base / "historial"
     with TestClient(main.app) as c:
         yield c
 
@@ -57,3 +61,32 @@ def test_errores_playlist(cliente):
     assert cliente.post("/objetivo2/playlist", json={"personas": ["ana"], "franja": 1, "tipo_dia": "laborable", "n": 0}).status_code == 422
     assert cliente.post("/objetivo2/playlist", json={"personas": ["ana", "ana"], "franja": 1, "tipo_dia": "laborable"}).status_code == 422
     assert cliente.post("/objetivo2/playlist", json={"personas": ["x"], "franja": 1, "tipo_dia": "laborable"}).status_code == 404
+
+
+def test_subir_historial_y_reentrenar(cliente):
+    import io, json, time, zipfile
+    filas = []
+    for f in sorted((main.CARPETA_HISTORIAL / "ana").glob("*.json")):
+        filas += json.loads(f.read_text(encoding="utf-8"))
+    b = io.BytesIO()
+    with zipfile.ZipFile(b, "w") as z:
+        z.writestr("Spotify Extended Streaming History/Streaming_History_Audio_2024.json", json.dumps(filas))
+    sin_permiso = cliente.post("/historiales", data={"persona": "carla", "consentimiento": "false"},
+                               files={"archivo": ("my_spotify_data.zip", b.getvalue(), "application/zip")})
+    assert sin_permiso.status_code == 422
+    r = cliente.post("/historiales", data={"persona": "Carla", "consentimiento": "true"},
+                     files={"archivo": ("my_spotify_data.zip", b.getvalue(), "application/zip")})
+    assert r.status_code == 202, r.text
+    for _ in range(120):
+        estado = cliente.get("/preparacion").json()
+        if estado["estado"] != "en_curso":
+            break
+        time.sleep(0.5)
+    assert estado["estado"] == "lista", estado
+    assert {"persona": "carla", "en_el_modelo": True}.items() <= next(h for h in cliente.get("/historiales").json() if h["persona"] == "carla").items()
+    r = cliente.post("/objetivo2/playlist", json={"personas": ["ana", "carla"], "franja": 2, "tipo_dia": "laborable", "n": 5})
+    assert r.status_code == 200 and r.json()["n_canciones"] == 5
+    assert cliente.post("/historiales", data={"persona": "x", "consentimiento": "true"},
+                        files={"archivo": ("a.zip", b"no es un zip", "application/zip")}).status_code == 422
+    assert cliente.delete("/historiales/carla").status_code == 202
+    assert cliente.delete("/historiales/carla").status_code == 404
