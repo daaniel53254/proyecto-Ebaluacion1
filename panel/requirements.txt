@@ -1,3 +1,5 @@
 streamlit>=1.45
 pandas>=2.2
 plotly>=5.24
+scikit-learn>=1.5   # para cargar el modelo de la API
+joblib>=1.3
