@@ -68,6 +68,24 @@ def calidad(ruta: str):
     return D.calidad_desde_log(Path(ruta))
 
 
+def _marca_gustos() -> float:
+    """Fecha de modificación del CSV del notebook 03, para recargarlo si Ander lo regenera."""
+    ruta = D.DIR_DATOS / D.ARCHIVO_GUSTOS
+    return ruta.stat().st_mtime if ruta.exists() else 0.0
+
+
+@st.cache_data(show_spinner="Leyendo los gustos del recomendador…")
+def gustos(_marca: float):
+    g = D.cargar_gustos()
+    return (g, "notebook") if g is not None else (D.gustos_aproximados(candidatas()), "aproximados")
+
+
+@st.cache_data(show_spinner="Evaluando las dos listas en los 12 contextos…")
+def resumen_contextos(_marca: float, personas_sel: tuple, n, minutos):
+    g, _ = gustos(_marca)
+    return D.evaluar_todos(g, candidatas(), list(personas_sel), n=n, minutos=minutos)
+
+
 try:
     sv, o1, cand = silver(), objetivo1(), candidatas()
 except FileNotFoundError as e:
@@ -100,7 +118,7 @@ with st.sidebar:
     )
 
 tab_hab, tab_cal, tab_ctx, tab_pl = st.tabs(
-    ["Hábitos por persona", "Calidad de datos", "No salto por contexto", "Playlist de ejemplo"]
+    ["Hábitos por persona", "Calidad de datos", "No salto por contexto", "Recomendador"]
 )
 
 # ------------------------------------------------------------------------- 1. hábitos
@@ -309,74 +327,141 @@ with tab_ctx:
         "recomendador normaliza el gusto de cada una antes de combinarlo."
     )
 
-# ----------------------------------------------------------------- 4. playlist de ejemplo
+# ------------------------------------------------------------------- 4. recomendador
 
 with tab_pl:
+    marca = _marca_gustos()
+    gu, fuente = gustos(marca)
+    pct_real = (gu["origen"] == "real").mean()
+    if fuente == "notebook":
+        st.success(
+            f"Gustos del recomendador de `data/dataset/{D.ARCHIVO_GUSTOS}` (notebook 03). "
+            f"{pct(pct_real)} son tasas reales del lote 1; el resto, la predicción del modelo del objetivo 1."
+        )
+    else:
+        st.warning(
+            f"Falta `data/dataset/{D.ARCHIVO_GUSTOS}`: ejecuta el notebook 03. Mientras tanto, las canciones "
+            "sin dato real llevan la tasa habitual de la persona en ese contexto en lugar de la predicción "
+            "del modelo, así que la lista del sistema es solo aproximada."
+        )
     st.markdown(
-        "Playlist para **todo el grupo** en un contexto, con una **regla sencilla** sobre "
-        "`gold_candidatas.csv`. No es el modelo de IA (eso llega con el baseline de Ander): sirve para "
-        "ver de punta a punta cómo se usará la tabla."
+        "**Sistema:** cada persona puntúa cada candidata con su percentil de gusto en ese contexto; "
+        "la canción vale el **mínimo** del grupo y los empates se resuelven con la **media**. "
+        "**Referencia:** las canciones más escuchadas por el grupo en el lote 1. "
+        "Las dos se evalúan con lo que pasó de verdad en el lote 2."
     )
-    c = st.columns(5)
+
+    c = st.columns(4)
     franja = c[0].selectbox("Franja", list(D.FRANJAS), index=4, format_func=D.FRANJAS.get)
     tipo = c[1].selectbox("Tipo de día", list(D.TIPOS_DIA), index=1, format_func=D.TIPOS_DIA.get)
-    minutos = c[2].slider("Duración del viaje (min)", 15, 240, 60, step=15)
-    umbral = c[3].slider("Umbral de compatibilidad", 0.5, 1.3, 0.9, step=0.05,
-                         help="Gusto mínimo normalizado (1 = lo habitual en esa persona).")
-    max_art = c[4].number_input("Máx. canciones por artista", 1, 10, 2)
-    solo_dato = st.checkbox("Solo canciones con tasa real en el lote 1 para alguna persona", value=True)
-
-    cand_sel = cand[cand["persona"].isin(sel_personas)]
-    lista, ev = D.playlist_ejemplo(cand_sel, franja, tipo, minutos, umbral, int(max_art), solo_dato)
-
-    m = st.columns(3)
-    m[0].metric("Canciones", ev["canciones"])
-    m[1].metric("Minutos", f"{ev['minutos']:.0f}")
-    m[2].metric("Pasan el umbral", miles(ev["pasan_umbral"]),
-                help=f"De {miles(ev['candidatas_contexto'])} canciones candidatas en este contexto.")
-    st.markdown("**Evaluación con el lote 2** (tasa real de no salto de las canciones elegidas "
-                "que la persona escuchó al menos 5 veces en ese contexto después del 01/07/2025)")
-    m = st.columns(len(ev["por_persona"]) + 1)
-    for i, (p, e) in enumerate(ev["por_persona"].items()):
-        delta = (None if pd.isna(e["tasa_lote2"])
-                 else f"{(e['tasa_lote2'] - e['media_persona']) * 100:+.1f} p.p. vs su media".replace(".", ","))
-        m[i].metric(p, pct(e["tasa_lote2"]), delta=delta,
-                    help=f"Calculada con {e['con_lote2']} canciones de la lista. "
-                         f"Su media en el lote 1 es {pct(e['media_persona'])}.")
-        n = e["con_lote2"]
-        m[i].caption(f"{n} {'canción' if n == 1 else 'canciones'} con dato")
-
-    if lista.empty:
-        st.warning("Ninguna canción pasa el umbral en este contexto. Bájalo o quita el filtro.")
+    modo = c[2].radio("Cortar por", ["Número de canciones", "Duración del viaje"], horizontal=True)
+    if modo == "Número de canciones":
+        n_sel = c[3].select_slider("N", options=[10, 20, 30, 50, 75, 100], value=50)
+        min_sel = None
     else:
-        cols_g = [c for c in lista.columns if c.startswith("gusto_")]
-        vista = lista[["cancion", "artista", "duracion_ms", "duracion_imputada", *cols_g, "puntuacion"]].copy()
-        vista["duracion"] = (vista["duracion_ms"] / 60_000).map(
-            lambda x: f"{int(x)}:{int(round((x % 1) * 60)):02d}")
-        vista.loc[vista["duracion_imputada"], "duracion"] += " *"
-        vista = vista.drop(columns=["duracion_ms", "duracion_imputada"])
-        vista.insert(0, "#", range(1, len(vista) + 1))
+        min_sel = c[3].slider("Minutos", 15, 300, 120, step=15)
+        n_sel = None
+
+    sistema, referencia = D.listas_contexto(gu, cand, franja, tipo, sel_personas)
+    sistema, referencia = D.cortar(sistema, n_sel, min_sel), D.cortar(referencia, n_sel, min_sel)
+    ev_s = D.evaluar(sistema, cand, franja, tipo, sel_personas).set_index("persona")
+    ev_r = D.evaluar(referencia, cand, franja, tipo, sel_personas).set_index("persona")
+
+    st.subheader(f"{D.FRANJAS[franja]} · {D.TIPOS_DIA[tipo]}: evaluación en el lote 2")
+    filas = []
+    for nombre, ev, lista in [("Sistema", ev_s, sistema), ("Más escuchadas", ev_r, referencia)]:
+        for p in sel_personas:
+            filas.append({"lista": nombre, "persona": p, "tasa_salto": ev.loc[p, "tasa_salto"],
+                          "ndcg": ev.loc[p, "ndcg"], "evaluadas": ev.loc[p, "canciones_evaluadas"],
+                          "canciones": len(lista)})
+    comp = pd.DataFrame(filas)
+    col_g, col_t = st.columns([3, 2])
+    with col_g:
+        fig = px.bar(comp, x="persona", y="tasa_salto", color="lista", barmode="group",
+                     color_discrete_map={"Sistema": "#2a78d6", "Más escuchadas": GRIS},
+                     custom_data=["evaluadas", "canciones"],
+                     labels={"persona": "", "tasa_salto": "Tasa de salto real (lote 2)", "lista": ""},
+                     title="Tasa de salto real en el lote 2 (menos es mejor)")
+        fig.update_traces(hovertemplate="%{x}<br>Salto %{y:.1%}<br>%{customdata[0]} de "
+                                        "%{customdata[1]} canciones evaluadas<extra>%{fullData.name}</extra>")
+        fig.update_yaxes(tickformat=".0%", rangemode="tozero")
+        st.plotly_chart(plantilla(fig, 320), width="stretch")
+    with col_t:
         st.dataframe(
-            vista, hide_index=True, width="stretch",
+            comp.drop(columns="canciones"), hide_index=True, width="stretch",
             column_config={
-                "cancion": "Canción", "artista": "Artista", "duracion": "Duración",
-                **{c: st.column_config.NumberColumn(c.replace("gusto_", "Gusto "), format="%.2f")
-                   for c in cols_g},
-                "puntuacion": st.column_config.NumberColumn("Mínimo (grupo)", format="%.2f"),
+                "lista": "Lista", "persona": "Persona",
+                "tasa_salto": st.column_config.NumberColumn("Salto", format="percent"),
+                "ndcg": st.column_config.NumberColumn("NDCG", format="%.3f"),
+                "evaluadas": st.column_config.NumberColumn(
+                    "Evaluadas", format="%d",
+                    help="Canciones de la lista que la persona escuchó 5 o más veces en este contexto en el lote 2."),
             },
         )
-        st.caption("* Duración imputada con la mediana: nadie del grupo escuchó la canción entera.")
+        st.caption("Solo cuentan las canciones que la persona escuchó al menos 5 veces en este contexto en el "
+                   "lote 2; con pocas canciones evaluadas, la cifra es orientativa.")
 
-    with st.expander("Cómo se calcula"):
-        st.markdown(
-            """
-1. Se toman las candidatas de la franja y el tipo de día elegidos.
-2. **Gusto** de cada persona por cada canción: su tasa real de no salto en ese contexto en el
-   lote 1 si la escuchó ahí al menos 5 veces; si no, su tasa habitual en ese contexto.
-3. Se **normaliza** dividiendo por la tasa media de la persona (`per_tasa_media`): 1 = lo normal
-   en ella. Sin esto, la persona que más salta decidiría siempre.
-4. La canción vale el **mínimo** entre personas y entra si supera el umbral.
-5. Se ordena, se limita el número de canciones por artista y se corta por la duración del viaje.
-6. La tasa real del **lote 2** solo se usa para evaluar la lista, nunca para construirla.
-"""
+    st.subheader("Las dos listas")
+    col_s, col_r = st.columns(2)
+    cols_p = [f"percentil_{p}" for p in sel_personas]
+
+    def duracion_txt(t: pd.DataFrame) -> pd.Series:
+        m = t["duracion_ms"] / 60_000
+        txt = m.map(lambda x: f"{int(x)}:{int(round((x % 1) * 60)):02d}")
+        return txt.where(~t["duracion_imputada"], txt + " *")
+
+    with col_s:
+        st.markdown(f"**Sistema** · {len(sistema)} canciones · {sistema['duracion_ms'].sum() / 60_000:.0f} min")
+        v = sistema[["cancion", "artista", *cols_p, "gusto_grupo", "desempate"]].copy()
+        v.insert(2, "duracion", duracion_txt(sistema))
+        v["previstos"] = sistema[[f"origen_{p}" for p in sel_personas]].ne("real").sum(axis=1)
+        v.insert(0, "#", range(1, len(v) + 1))
+        st.dataframe(
+            v, hide_index=True, width="stretch", height=420,
+            column_config={
+                "cancion": "Canción", "artista": "Artista", "duracion": "Dur.",
+                **{f"percentil_{p}": st.column_config.NumberColumn(
+                    f"Pct. {p.replace('persona_', '')[:4]}", format="%.2f", help=f"Percentil de gusto de {p}")
+                   for p in sel_personas},
+                "gusto_grupo": st.column_config.NumberColumn("Mínimo", format="%.2f"),
+                "desempate": st.column_config.NumberColumn("Media", format="%.2f"),
+                "previstos": st.column_config.NumberColumn(
+                    "Previstos", format="%d", help="Personas cuyo gusto es previsto, no real."),
+            },
         )
+    with col_r:
+        st.markdown(f"**Más escuchadas** · {len(referencia)} canciones · "
+                    f"{referencia['duracion_ms'].sum() / 60_000:.0f} min")
+        v = referencia[["cancion", "artista", "escuchas_grupo_l1"]].copy()
+        v.insert(2, "duracion", duracion_txt(referencia))
+        v.insert(0, "#", range(1, len(v) + 1))
+        st.dataframe(
+            v, hide_index=True, width="stretch", height=420,
+            column_config={"cancion": "Canción", "artista": "Artista", "duracion": "Dur.",
+                           "escuchas_grupo_l1": st.column_config.NumberColumn("Escuchas lote 1", format="%d")},
+        )
+    comunes = len(set(sistema["track_id"]) & set(referencia["track_id"]))
+    st.caption(f"Canciones en las dos listas: {comunes}. * Duración imputada con la mediana: nadie del grupo "
+               "escuchó la canción entera.")
+
+    st.subheader("Los 12 contextos")
+    st.caption("Misma agregación que el notebook 03: media de cada persona sobre los contextos en los que "
+               "tiene canciones evaluadas y, después, media de las personas.")
+    rc = resumen_contextos(marca, tuple(sel_personas), n_sel, min_sel)
+    st.dataframe(
+        rc.reset_index(), hide_index=True, width="stretch",
+        column_config={
+            "lista": "Lista",
+            "tasa_salto": st.column_config.NumberColumn("Salto (media)", format="percent"),
+            "ndcg": st.column_config.NumberColumn("NDCG (media)", format="%.3f"),
+            "canciones_evaluadas": st.column_config.NumberColumn("Evaluadas por contexto", format="%.1f"),
+            **{f"tasa_salto_{p}": st.column_config.NumberColumn(f"Salto {p}", format="percent")
+               for p in sel_personas},
+        },
+    )
+    s, r = rc.loc["Sistema", "tasa_salto"], rc.loc["Más escuchadas", "tasa_salto"]
+    if s < r:
+        st.success(f"El sistema salta menos que la lista de las más escuchadas: {pct(s)} frente a {pct(r)}.")
+    else:
+        st.error(f"Hipótesis sin cumplir todavía: el sistema salta {pct(s)} frente a {pct(r)} de la lista "
+                 "de las más escuchadas.")

@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 RAIZ = Path(__file__).resolve().parent.parent
@@ -162,87 +163,146 @@ def tasa_por_contexto(objetivo1: pd.DataFrame, lote: int | None = 1) -> pd.DataF
     return t
 
 
-# ------------------------------------------------------------------ playlist de ejemplo
+# ------------------------------------------------------------------------- recomendador
+#
+# Sigue la sección 4 del notebook 03 de Ander (celdas 16 y 17):
+#   gusto de cada miembro = tasa real del lote 1 si tiene 5 o más escuchas en ese contexto;
+#   si no, la que predice el mejor modelo del objetivo 1. Se pasa a percentil dentro de las
+#   candidatas de esa persona en ese contexto. Gusto del grupo = mínimo de los percentiles;
+#   empates por la media. Referencia = las más escuchadas del grupo en el lote 1.
+# El notebook guarda los gustos en data/dataset/recomendador_gustos.csv; el panel no entrena nada.
+
+ARCHIVO_GUSTOS = "recomendador_gustos.csv"
+COLS_GUSTOS = ["persona", "track_id", "franja", "tipo_dia", "gusto", "origen", "percentil"]
+CONTEXTO = ["franja", "tipo_dia"]
 
 
-def playlist_ejemplo(
-    candidatas: pd.DataFrame,
-    franja: int,
-    tipo_dia: str,
-    minutos: int = 60,
-    umbral: float = 0.9,
-    max_por_artista: int = 2,
-    solo_con_dato: bool = True,
-) -> tuple[pd.DataFrame, dict]:
-    """Regla de ejemplo para el recomendador (no es el modelo de IA).
+def cargar_gustos() -> pd.DataFrame | None:
+    """Gustos del recomendador que guarda el notebook 03, o None si todavía no está el CSV."""
+    ruta = DIR_DATOS / ARCHIVO_GUSTOS
+    if not ruta.exists():
+        return None
+    g = pd.read_csv(ruta, encoding="utf-8-sig")
+    faltan = set(COLS_GUSTOS) - set(g.columns)
+    if faltan:
+        raise ValueError(f"A {ARCHIVO_GUSTOS} le faltan columnas: {sorted(faltan)}")
+    return g[COLS_GUSTOS]
 
-    Gusto de cada persona por una canción en el contexto elegido:
-      - la tasa real del lote 1 si la escuchó ahí al menos 5 veces;
-      - si no, su tasa total en ese contexto (`per_tasa_no_salto_ctx`), es decir, «lo normal en ella».
-    Se normaliza dividiendo por `per_tasa_media` (ver diccionario, sección 6) y la canción vale
-    el mínimo entre personas: entra si nadie la va a saltar más de lo que suele.
-    """
-    d = candidatas[(candidatas["franja"] == franja) & (candidatas["tipo_dia"] == tipo_dia)].copy()
-    d["con_dato"] = d["tasa_real_lote1"].notna()
-    d["gusto"] = d["tasa_real_lote1"].fillna(d["per_tasa_no_salto_ctx"])
-    d["gusto_norm"] = d["gusto"] / d["per_tasa_media"]
 
-    personas = sorted(d["persona"].unique())
-    ancho = d.pivot_table(index="track_id", columns="persona", values="gusto_norm", aggfunc="first")
-    ancho = ancho.reindex(columns=personas)
-    info = (d.groupby("track_id")
-            .agg(cancion=("cancion", "first"), artista=("artista", "first"),
-                 duracion_ms=("duracion_ms", "first"), con_dato=("con_dato", "sum"),
-                 escuchas_lote1=("n_lote1", "sum"), conocida=("conocida", "sum")))
-    ancho.columns = [f"gusto_{p}" for p in ancho.columns]
-    t = info.join(ancho)
-    gustos = t[[f"gusto_{p}" for p in personas]]
-    t["puntuacion"] = gustos.min(axis=1)
-    # Desempate: si a alguien le falta dato su gusto es una constante y muchas canciones empatan
-    # en el mínimo; entonces manda la media del grupo.
-    t["media_grupo"] = gustos.mean(axis=1)
+def gustos_aproximados(candidatas: pd.DataFrame) -> pd.DataFrame:
+    """Sustituto mientras no esté el CSV del notebook 03: misma regla, pero sin modelo.
 
-    if solo_con_dato:
-        t = t[t["con_dato"] > 0]
-    t = t[t["puntuacion"] >= umbral]
-    t = t.sort_values(["puntuacion", "media_grupo", "escuchas_lote1"], ascending=False)
-    if max_por_artista:
-        t = t[t.groupby("artista").cumcount() < max_por_artista]
+    Donde el notebook usa la predicción de Ridge, aquí va la tasa de la persona en ese contexto,
+    que es igual para todas sus canciones sin dato (empatan en el percentil)."""
+    c = candidatas[["persona", "track_id", "franja", "tipo_dia", "tasa_real_lote1",
+                    "per_tasa_no_salto_ctx"]].copy()
+    c["gusto"] = c["tasa_real_lote1"].fillna(c["per_tasa_no_salto_ctx"])
+    c["origen"] = np.where(c["tasa_real_lote1"].notna(), "real", "aproximada")
+    c["percentil"] = c.groupby(["persona", *CONTEXTO])["gusto"].rank(pct=True)
+    return c[COLS_GUSTOS]
+
+
+def listas_contexto(gustos: pd.DataFrame, candidatas: pd.DataFrame, franja: int, tipo_dia: str,
+                    personas: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Lista del sistema y lista de referencia (más escuchadas), completas y ordenadas."""
+    g = gustos[(gustos["franja"] == franja) & (gustos["tipo_dia"] == tipo_dia)
+               & gustos["persona"].isin(personas)]
+    c = candidatas[(candidatas["franja"] == franja) & (candidatas["tipo_dia"] == tipo_dia)
+                   & candidatas["persona"].isin(personas)]
+
+    # «percentil» del CSV vale para el grupo completo: las candidatas son las canciones que
+    # escuchó alguien del grupo en el lote 1. Con solo algunos miembros, las candidatas son las que
+    # escucharon ellos y el percentil se recalcula con «gusto» sobre ese conjunto (nota de Ander).
+    if set(personas) != set(gustos["persona"].unique()):
+        oidas = candidatas.loc[candidatas["persona"].isin(personas) & (candidatas["conocida"] == 1),
+                               "track_id"].unique()
+        g = g[g["track_id"].isin(oidas)].copy()
+        g["percentil"] = g.groupby("persona")["gusto"].rank(pct=True)
+        c = c[c["track_id"].isin(oidas)]
+
+    grupo = g.groupby("track_id").agg(gusto_grupo=("percentil", "min"),
+                                      desempate=("percentil", "mean"))
+    info = c.groupby("track_id").agg(cancion=("cancion", "first"), artista=("artista", "first"),
+                                     duracion_ms=("duracion_ms", "first"),
+                                     escuchas_grupo_l1=("n_lote1", "sum"))
+    pct = g.pivot_table(index="track_id", columns="persona", values="percentil", aggfunc="first")
+    pct.columns = [f"percentil_{p}" for p in pct.columns]
+    org = g.pivot_table(index="track_id", columns="persona", values="origen", aggfunc="first")
+    org.columns = [f"origen_{p}" for p in org.columns]
+    t = info.join(grupo, how="inner").join(pct).join(org)   # índice ordenado por track_id
 
     mediana = candidatas.drop_duplicates("track_id")["duracion_ms"].median()
     t["duracion_imputada"] = t["duracion_ms"].isna()
     t["duracion_ms"] = t["duracion_ms"].fillna(mediana if pd.notna(mediana) else DURACION_DEFECTO_MS)
-    acumulado = t["duracion_ms"].cumsum()
-    lista = t[acumulado <= minutos * 60_000].reset_index()
 
-    # Evaluación con el lote 2: solo se mira, nunca se usa para elegir.
-    ev = d[d["track_id"].isin(lista["track_id"])]
-    ev2 = ev[ev["tasa_real_lote2"].notna()]
-    evaluacion = {
-        "canciones": len(lista),
-        "minutos": lista["duracion_ms"].sum() / 60_000,
-        "candidatas_contexto": d["track_id"].nunique(),
-        "pasan_umbral": len(t),
-        "por_persona": {
-            p: {
-                "con_lote2": int((ev2["persona"] == p).sum()),
-                "tasa_lote2": ev2.loc[ev2["persona"] == p, "tasa_real_lote2"].mean(),
-                "media_persona": d.loc[d["persona"] == p, "per_tasa_media"].iloc[0],
-            }
-            for p in personas
-        },
-    }
-    return lista, evaluacion
+    # Orden estable, como el sort_values de varias columnas del notebook: los empates quedan
+    # por track_id.
+    sistema = t.sort_values(["gusto_grupo", "desempate"], ascending=False, kind="stable")
+    referencia = t.sort_values("escuchas_grupo_l1", ascending=False, kind="stable")
+    return sistema.reset_index(), referencia.reset_index()
+
+
+def cortar(lista: pd.DataFrame, n: int | None = None, minutos: int | None = None) -> pd.DataFrame:
+    """Primeras N canciones, o las que caben en la duración del viaje."""
+    if minutos is not None:
+        return lista[lista["duracion_ms"].cumsum() <= minutos * 60_000]
+    return lista.head(n)
+
+
+def ndcg(relevancias) -> float:
+    """NDCG de una lista ya ordenada; relevancia = tasa real de no salto (0-1). Igual que el 03."""
+    rel = np.asarray(relevancias, dtype=float)
+    if len(rel) == 0 or rel.max() == 0:
+        return np.nan
+    desc = 1 / np.log2(np.arange(2, len(rel) + 2))
+    return float((rel * desc).sum() / (np.sort(rel)[::-1] * desc).sum())
+
+
+def evaluar(lista: pd.DataFrame, candidatas: pd.DataFrame, franja: int, tipo_dia: str,
+            personas: list[str]) -> pd.DataFrame:
+    """Una fila por persona: tasa de salto real en el lote 2 (ponderada por escuchas), NDCG y
+    cuántas canciones de la lista se pudieron evaluar (5 o más escuchas en el lote 2)."""
+    real2 = candidatas[(candidatas["franja"] == franja) & (candidatas["tipo_dia"] == tipo_dia)
+                       & candidatas["persona"].isin(personas) & candidatas["tasa_real_lote2"].notna()]
+    top = lista[["track_id"]].assign(posicion=np.arange(len(lista)))
+    ev = top.merge(real2[["persona", "track_id", "n_lote2", "tasa_real_lote2"]], on="track_id")
+    filas = []
+    for p in personas:
+        e = ev[ev["persona"] == p].sort_values("posicion")
+        filas.append({
+            "persona": p, "canciones_evaluadas": len(e),
+            "tasa_salto": (1 - np.average(e["tasa_real_lote2"], weights=e["n_lote2"])) if len(e) else np.nan,
+            "ndcg": ndcg(e["tasa_real_lote2"]) if len(e) else np.nan,
+        })
+    return pd.DataFrame(filas)
+
+
+def evaluar_todos(gustos: pd.DataFrame, candidatas: pd.DataFrame, personas: list[str],
+                  n: int | None = None, minutos: int | None = None) -> pd.DataFrame:
+    """Las dos listas en los 12 contextos, agregadas como en el notebook 03: media de cada persona
+    sobre los contextos en los que tiene canciones evaluadas y después media de las personas."""
+    filas = []
+    for (f, t) in candidatas[CONTEXTO].drop_duplicates().itertuples(index=False):
+        sistema, referencia = listas_contexto(gustos, candidatas, f, t, personas)
+        for nombre, lista in [("Sistema", sistema), ("Más escuchadas", referencia)]:
+            r = evaluar(cortar(lista, n, minutos), candidatas, f, t, personas)
+            filas.append(r[r["canciones_evaluadas"] > 0].assign(lista=nombre, franja=f, tipo_dia=t))
+    r = pd.concat(filas, ignore_index=True)
+    por_persona = r.groupby(["lista", "persona"])[["tasa_salto", "ndcg", "canciones_evaluadas"]].mean()
+    resumen = por_persona.groupby("lista").mean()
+    resumen = resumen.join(por_persona["tasa_salto"].unstack("persona").add_prefix("tasa_salto_"))
+    return resumen.loc[["Sistema", "Más escuchadas"]]
 
 
 if __name__ == "__main__":
     log = ultimo_log()
     print("Último log:", log)
-    if log:
-        c = calidad_desde_log(log)
-        print({k: v for k, v in c.items() if not isinstance(v, pd.DataFrame)})
-        print(c["problemas"])
     cand = cargar_candidatas()
-    lista, ev = playlist_ejemplo(cand, franja=4, tipo_dia="fin_semana", minutos=90)
-    print(lista[["cancion", "artista", "puntuacion"]].head(15))
-    print(ev)
+    gustos = cargar_gustos()
+    print("Gustos:", "notebook 03" if gustos is not None else "aproximados (falta el CSV)")
+    if gustos is None:
+        gustos = gustos_aproximados(cand)
+    personas = sorted(cand["persona"].unique())
+    for n in (20, 50, 100):
+        print(f"\nN = {n}")
+        print(evaluar_todos(gustos, cand, personas, n=n).round(3).to_string())
