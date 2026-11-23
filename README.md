@@ -50,7 +50,7 @@ proyecto-Ebaluacion1/
 │       ├── gold.sql              gold.objetivo1 y gold.candidatas
 │       └── validar_limpieza.sql  cada problema contado en bronze y en silver
 ├── panel/                  panel v1 en Streamlit (app.py, datos.py; ver panel/README.md)
-├── notebooks/              notebooks de la etapa de IA (01 revisión, 02 EDA, 03 modelos base)
+├── notebooks/              notebooks de la etapa de IA (01 revisión, 02 EDA, 03 modelos base, 04 drift, 05 modelos finales, 06 objetivo 2 final)
 ├── docs/
 │   ├── diccionario_datos.md  columnas, tipos y cifras de cada capa
 │   └── evidencias/           log de cada ejecución del pipeline
@@ -132,6 +132,9 @@ Los notebooks leen los CSV que deja el pipeline en `data/dataset/` (silver y gol
 | `notebooks/01_revision_datos.ipynb` | Revisión de calidad del dataset de Kaggle, cobertura del cruce con los historiales y prueba de si el audio predice el gusto (Ridge). |
 | `notebooks/02_eda.ipynb` | Análisis exploratorio de silver y gold: hábitos por persona, franja y tipo de día, distribución de la tasa de no salto y diferencias entre lotes. |
 | `notebooks/03_modelos_base.ipynb` | Modelos base de los dos objetivos con MLflow: objetivo 1 (regresión de la tasa de no salto: dos modelos base, Ridge y Gradient Boosting, validación con `GroupKFold` por canción y test en el lote 2) y objetivo 2 (recomendador de grupo frente a "las más escuchadas", N = 20, 50 y 100). Guarda `recomendador_gustos.csv` para el panel. |
+| `notebooks/04_drift.ipynb` | Data drift y model drift con el lote 2 (PSI, calibración mensual, error por trimestre), comparación de políticas de reentrenamiento y estrategia de monitorización. Experimento `drift` en MLflow. |
+| `notebooks/05_modelos_finales.ipynb` | Modelos finales del objetivo 1: búsqueda de hiperparámetros, análisis de errores y registro de modelos en MLflow (`playlist_tasa_no_salto`, alias `produccion` y `anterior`). |
+| `notebooks/06_objetivo2_final.ipynb` | Objetivo 2 con los modelos finales: qué modelo ordena la playlist (GB absoluto frente a GB cuadrático y el empate de percentiles de Daniel), evaluación frente a «las más escuchadas» en el lote 2 con diferencia emparejada e intervalo bootstrap, y quién marca el mínimo del grupo. |
 
 **En local (Anaconda o venv):** `pip install pandas numpy scikit-learn matplotlib mlflow` y abre los notebooks desde la raíz del repositorio con el pipeline ya ejecutado.
 
