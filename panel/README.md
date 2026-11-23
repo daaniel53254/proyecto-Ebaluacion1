@@ -38,7 +38,7 @@ la carpeta compartida de Drive. Si falta alguno, el panel avisa y se para.
 | Hábitos por persona | Escuchas, horas, canciones, artistas, tasa de no salto y % en aleatorio; reparto por hora, día de la semana, plataforma y forma de terminar; artistas más escuchados y canciones en común |
 | Calidad de datos | Filas en origen, bronze, silver y gold; los 8 problemas del ensuciado contados en bronze y en silver; comprobaciones sobre silver |
 | No salto por contexto | Tasa de no salto por franja de 4 horas y tipo de día, por persona y lote |
-| Playlist de ejemplo | Lista para el grupo en un contexto y una duración de viaje, con una regla sencilla, y su evaluación con el lote 2 |
+| Recomendador | Lista del sistema frente a la de las más escuchadas en un contexto, cortadas por número de canciones o por duración del viaje; evaluación de las dos en el lote 2 (tasa de salto y NDCG) en ese contexto y en los 12 |
 
 En la barra lateral se eligen las personas y los años (estos solo filtran los hábitos).
 
@@ -49,20 +49,32 @@ En la barra lateral se eligen las personas y los años (estos solo filtran los h
 | Hábitos | `spotify_reproducciones.csv` (silver): hace falta la hora, la plataforma y el motivo de fin de cada escucha, que gold ya no tiene |
 | Calidad de datos | El último `docs/evidencias/pipeline_*.log` que termina en «Pipeline completado», y `spotify_reproducciones.csv` para las comprobaciones |
 | No salto por contexto | `gold_objetivo1.csv`: suma de `n_no_salto` ÷ suma de `n_escuchas` (no la media de tasas) |
-| Playlist | `gold_candidatas.csv` |
+| Recomendador | `recomendador_gustos.csv` (lo guarda el notebook 03 de Ander) y `gold_candidatas.csv` |
 
-**Regla de la playlist (provisional).** Gusto de cada persona = su tasa real en ese contexto del
-lote 1 si tiene al menos 5 escuchas; si no, su tasa habitual en ese contexto
-(`per_tasa_no_salto_ctx`). Se divide por `per_tasa_media`, la canción vale el mínimo entre personas
-(desempate: la media) y entra si pasa el umbral. Después se limita el número de canciones por
-artista y se corta por la duración del viaje (si una canción no tiene duración, se usa la mediana).
-El lote 2 solo se usa para evaluar. Cuando esté el baseline de Ander, la regla se cambia por la
-predicción del modelo en `datos.playlist_ejemplo`.
+**Recomendador.** El panel no entrena nada: sigue la sección 4 del notebook 03.
+
+- `recomendador_gustos.csv` tiene una fila por persona × candidata × contexto con `persona`,
+  `track_id`, `franja`, `tipo_dia`, `gusto`, `origen` (`real` o `prevista`) y `percentil`. El gusto es
+  la tasa real del lote 1 si hay 5 o más escuchas en ese contexto y, si no, la predicción del mejor
+  modelo del objetivo 1. El percentil se calcula dentro de cada persona y contexto.
+- **Sistema:** gusto del grupo = mínimo de los percentiles; los empates se resuelven con la media.
+- **Referencia:** las canciones con más escuchas del grupo en el lote 1.
+- **Evaluación (solo lote 2):** para cada persona, la tasa de salto real de las canciones de la lista
+  que escuchó 5 o más veces en ese contexto (ponderada por escuchas) y el NDCG. En «Los 12
+  contextos» se hace la media de cada persona sobre los contextos y después la de las personas, como
+  en el notebook. Con N = 20, 50 y 100 el panel da las mismas cifras que el notebook.
+- Si falta `recomendador_gustos.csv`, el panel avisa y usa una aproximación: donde iría la predicción
+  del modelo pone la tasa habitual de la persona en ese contexto. La lista de referencia no cambia.
+
+Para regenerar el CSV, ejecutar el notebook 03 entero con el gold actual.
 
 ## 4. Limitaciones
 
 - La evaluación con el lote 2 se apoya en pocas canciones (las que la persona volvió a escuchar al
   menos 5 veces en ese contexto), así que es orientativa.
-- Si a una persona le falta el dato real de una canción, su gusto es una constante; por eso muchas
-  canciones empatan en el mínimo y decide el desempate.
+- Con la aproximación (sin el CSV del notebook) las canciones sin dato real empatan en el percentil
+  de esa persona; con la predicción del modelo ya no pasa.
+- El `percentil` del CSV vale para el grupo completo. Si en la barra lateral se eligen solo algunas
+  personas, las candidatas pasan a ser las canciones que escucharon ellas en el lote 1 y el percentil
+  se recalcula con `gusto` sobre ese conjunto (como propone el notebook 03).
 - Las personas aparecen con su seudónimo, igual que en HDFS.
