@@ -5,7 +5,7 @@ set PY=%USERPROFILE%\anaconda3\python.exe
 if not exist "%PY%" set PY=python
 "%PY%" -m pip install -q -r api\requirements.txt
 if not exist api\datos\modelo.joblib (
-    echo Preparando el modelo con los historiales de data\entrada\historial...
+    echo Preparando el modelo con los historiales de data\raw...
     "%PY%" -m api.preparar_datos || goto :error
 )
 echo.

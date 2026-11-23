@@ -19,10 +19,25 @@ CAMPOS = ["ts", "ms_played", "spotify_track_uri", "master_metadata_track_name", 
 NOMBRES_FRANJA = ["0-4h", "4-8h", "8-12h", "12-16h", "16-20h", "20-24h"]
 
 
+def carpeta_historial_por_defecto(raiz: Path) -> Path:
+    """data/raw/<persona>/ es la entrada de pipeline.sh y donde la API guarda las subidas.
+    Si todavía no existe, se usa la carpeta antigua data/entrada/historial/<persona>/."""
+    raw = Path(raiz) / "data" / "raw"
+    antigua = Path(raiz) / "data" / "entrada" / "historial"
+    if not raw.exists() and antigua.exists() and any(_es_persona(p) for p in antigua.iterdir()):
+        return antigua
+    return raw
+
+
+def _es_persona(p: Path) -> bool:
+    # "persona=..." son las carpetas que escribe bigdata/preparar.py (JSON Lines seudonimizados): no son historiales
+    return p.is_dir() and not p.name.startswith((".", "persona="))
+
+
 def leer_historiales(carpeta_historial: Path) -> pd.DataFrame:
-    """Lee data/entrada/historial/<persona>/*.json con la limpieza mínima de silver (como el notebook 04)."""
+    """Lee <carpeta>/<persona>/Streaming_History_Audio_*.json con la limpieza mínima de silver (como el notebook 04)."""
     partes = []
-    for carpeta in sorted(p for p in Path(carpeta_historial).iterdir() if p.is_dir() and not p.name.startswith(".")):
+    for carpeta in sorted(p for p in Path(carpeta_historial).iterdir() if _es_persona(p)):
         filas = []
         for f in sorted(glob.glob(str(carpeta / "**" / "Streaming_History_Audio_*.json"), recursive=True)):
             with open(f, encoding="utf-8") as fh:

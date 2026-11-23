@@ -1,4 +1,5 @@
-# Entorno local de Big Data: HDFS + YARN + Hive + MLflow.
+# Entorno local de Big Data: HDFS + YARN + Hive.
+# MLflow no va en Docker: se instala en local con  bash servidor_mlflow.sh  (ver INSTALACION.md).
 # Arranque:  cd docker && docker compose up -d
 name: proyecto-ebaluacion1
 
@@ -155,32 +156,7 @@ services:
       retries: 20
       start_period: 60s
 
-  # -------------------------------------------------------------- MLflow
-  mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.19.0
-    container_name: mlflow
-    restart: unless-stopped
-    command: >
-      mlflow server
-      --host 0.0.0.0
-      --port 5000
-      --backend-store-uri sqlite:////mlflow/db/mlflow.db
-      --artifacts-destination /mlflow/artifacts
-      --serve-artifacts
-    ports:
-      - "5000:5000"
-    volumes:
-      - mlflow_db:/mlflow/db            # base de datos SQLite (volumen con nombre)
-      - ../mlruns:/mlflow/artifacts     # artefactos en carpeta local del repo
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=5)"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 30s
-
 volumes:
   namenode_data:
   datanode_data:
   metastore_data:
-  mlflow_db:

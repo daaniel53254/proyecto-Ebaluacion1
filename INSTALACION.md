@@ -4,7 +4,7 @@
 **Para:** cualquier miembro del equipo que quiera tener el mismo entorno en su equipo
 **Repositorio:** https://github.com/daaniel53254/proyecto-Ebaluacion1
 
-Esta guía deja tu equipo exactamente igual que el entorno de referencia: HDFS, YARN, Hive y MLflow en Docker, con las mismas versiones, puertos y configuración.
+Esta guía deja tu equipo exactamente igual que el entorno de referencia: HDFS, YARN y Hive en Docker, con las mismas versiones, puertos y configuración, y **MLflow instalado en local** (en un entorno virtual de Python, fuera de Docker).
 
 ---
 
@@ -24,7 +24,7 @@ Esta guía deja tu equipo exactamente igual que el entorno de referencia: HDFS, 
 
 ## 1. Qué vas a tener
 
-Ocho contenedores Docker, todos con las mismas imágenes y versiones:
+Siete contenedores Docker, todos con las mismas imágenes y versiones, y el servidor de MLflow en local:
 
 | Servicio | Contenedor | Imagen | Puerto en tu equipo |
 |---|---|---|---|
@@ -35,9 +35,9 @@ Ocho contenedores Docker, todos con las mismas imágenes y versiones:
 | PostgreSQL del metastore | `hive-metastore-postgresql` | `bde2020/hive-metastore-postgresql:2.3.0` | — |
 | Hive Metastore | `hive-metastore` | `bde2020/hive:2.3.2-postgresql-metastore` | — |
 | HiveServer2 | `hiveserver2` | `bde2020/hive:2.3.2-postgresql-metastore` | 10000 |
-| MLflow | `mlflow` | `ghcr.io/mlflow/mlflow:v2.19.0` | 5000 |
+| MLflow (**local, sin Docker**) | — | paquete `mlflow` 3.x en `.venv-mlflow/` | 5000 |
 
-Los datos (HDFS, metastore de Hive y MLflow) se guardan en volúmenes de Docker y no se pierden al apagar el equipo.
+Los datos de HDFS y del metastore de Hive se guardan en volúmenes de Docker y no se pierden al apagar el equipo. Los de MLflow están en la carpeta `mlruns/` del repositorio (`mlruns/mlflow.db` para experimentos, ejecuciones y registro de modelos; el resto de `mlruns/` para los artefactos).
 
 > **Importante:** los datos **no** se comparten por Git. Cada uno tiene su propio HDFS y su propio Hive. Lo que se comparte es el código: compose, scripts y consultas `.hql`. Los JSON de entrada os los tenéis que pasar aparte (Drive, USB…) y dejarlos en `data/entrada/`.
 
@@ -48,7 +48,7 @@ Los datos (HDFS, metastore de Hive y MLflow) se guardan en volúmenes de Docker 
 | RAM asignada a Docker | 6 GB (recomendado 8 GB) |
 | Espacio libre en disco | 15 GB |
 | Puertos libres | 5000, 8088, 9000, 9870, 10000 |
-| Software | Git y Docker Desktop (o Docker Engine en Linux) |
+| Software | Git, Docker Desktop (o Docker Engine en Linux) y Python 3.9 o superior (python.org o Anaconda) |
 | Terminal | Bash: en Windows, **Git Bash**, que se instala con Git |
 
 ## 3. Instalar las herramientas según tu sistema
@@ -110,8 +110,9 @@ El script hace todo esto por ti:
 2. Comprueba que tienes Git, Docker y Docker Compose.
 3. Arranca Docker si está parado y comprueba la memoria disponible.
 4. Comprueba que los puertos están libres.
-5. Descarga las imágenes (unos 12 GB la primera vez: ten paciencia) y arranca los 8 servicios.
-6. Ejecuta la validación completa del entorno.
+5. Descarga las imágenes (unos 12 GB la primera vez: ten paciencia) y arranca los 7 servicios de Docker.
+6. Instala MLflow en local (crea el entorno virtual `.venv-mlflow`) y arranca su servidor en http://localhost:5000.
+7. Ejecuta la validación completa del entorno.
 
 Si todo va bien, al final verás **«Entorno validado correctamente.»** y la lista de URLs.
 
@@ -141,21 +142,27 @@ docker compose up -d --wait
 docker compose ps
 ```
 
-Los 8 servicios tienen que aparecer como `healthy`. Después, desde la raíz del repositorio:
+Los 7 servicios tienen que aparecer como `healthy`. Después, desde la raíz del repositorio, arranca MLflow en local y valida:
 
 ```bash
-cd .. && bash bigdata/validar_entorno.sh
+cd .. && bash servidor_mlflow.sh arrancar
+```
+
+En Windows con Anaconda también puedes hacer doble clic en `servidor_mlflow.bat` (deja una ventana abierta con el servidor).
+
+```bash
+bash bigdata/validar_entorno.sh
 ```
 
 ## 6. Comprobar que todo funciona
 
 La validación (`bigdata/validar_entorno.sh`) comprueba:
 
-1. Que los 8 contenedores están en estado `healthy`.
+1. Que los 7 contenedores están en estado `healthy`.
 2. Que existen en HDFS las carpetas `/bronze`, `/silver` y `/gold`, y las crea si no están.
 3. Que se puede subir un archivo a HDFS desde `data/entrada/`.
 4. Que Hive crea una tabla externa, cuenta sus filas (3) con un trabajo de YARN y la borra.
-5. Que MLflow responde en http://localhost:5000.
+5. Que el servidor local de MLflow responde en http://localhost:5000.
 
 También puedes abrir en el navegador:
 
@@ -175,7 +182,8 @@ Todos los comandos de `docker compose` se lanzan desde la carpeta `docker/`.
 | Ver el estado | `docker compose ps` |
 | Ver registros de un servicio | `docker compose logs -f hiveserver2` |
 | Parar conservando los datos | `docker compose down` |
-| Borrar **todo**, incluidos los datos | `docker compose down -v` |
+| Borrar **todo**, incluidos los datos de HDFS y Hive | `docker compose down -v` |
+| Arrancar / parar MLflow (desde la raíz) | `bash servidor_mlflow.sh arrancar` / `bash servidor_mlflow.sh parar` |
 
 Subir un JSON a HDFS (antes déjalo en `data/entrada/`):
 
@@ -192,6 +200,16 @@ docker exec -it hiveserver2 beeline -u jdbc:hive2://localhost:10000 -n root
 > **Nombres de fichero:** no empieces ningún fichero de datos por `_` o por `.`, porque Hive los ignora y las tablas salen vacías.
 
 > **Git Bash:** si escribes a mano un comando con rutas que empiezan por `/` y falla con una ruta rara del tipo `C:/Program Files/Git/...`, ejecuta antes `export MSYS_NO_PATHCONV=1`.
+
+### MLflow en local
+
+MLflow no está en Docker: se instala con Python en `.venv-mlflow/` (lo hace `instalar.sh`, o `bash servidor_mlflow.sh instalar`) y guarda todo en `mlruns/`. Los notebooks y la API usan `http://localhost:5000` si el servidor está en marcha:
+
+```bash
+export MLFLOW_TRACKING_URI=http://localhost:5000
+```
+
+Si ya tenías el MLflow antiguo de Docker con experimentos, cópialos antes de actualizar: `docker cp mlflow:/mlflow/db/mlflow.db mlruns/mlflow.db` (los artefactos ya estaban en `mlruns/`). Después, `cd docker && docker compose up -d --remove-orphans` retira el contenedor viejo.
 
 ## 8. Trabajar juntos con Git
 
@@ -221,7 +239,7 @@ git push -u origin mi-tarea
 
 Después abre un *Pull Request* en GitHub para unirlo a `main`.
 
-Lo que **no** se sube (ya lo filtra el `.gitignore`): los datos de `data/entrada/`, `data/raw/` y los artefactos de MLflow (`mlruns/`).
+Lo que **no** se sube (ya lo filtra el `.gitignore`): los datos de `data/entrada/`, `data/raw/`, los datos de MLflow (`mlruns/`) y su entorno virtual (`.venv-mlflow/`).
 
 ## 9. Problemas frecuentes
 
@@ -234,4 +252,6 @@ Lo que **no** se sube (ya lo filtra el `.gitignore`): los datos de `data/entrada
 | Un servicio se queda en `starting` o `unhealthy` | Poca memoria o arranque lento | Sube la RAM de Docker y espera; mira `docker compose logs <servicio>` |
 | Muy lento en Mac con chip M | Emulación amd64 | Normal. Activa Rosetta (apartado 3) para mejorar |
 | `SELECT COUNT(*)` devuelve 0 | El fichero empieza por `_` o `.` | Renómbralo |
-| Quiero empezar de cero | — | `cd docker && docker compose down -v`, y luego `bash instalar.sh` |
+| `El puerto 5000 está ocupado` al arrancar MLflow | Sigue el contenedor `mlflow` antiguo, u otro programa | `cd docker && docker compose up -d --remove-orphans`; en Mac, desactiva el receptor AirPlay |
+| `Falta Python 3.9 o superior` | No hay Python en el PATH | Instala Python (python.org, marcando *Add to PATH*) o Anaconda |
+| Quiero empezar de cero | — | `cd docker && docker compose down -v`, borra `mlruns/` y `.venv-mlflow/`, y luego `bash instalar.sh` |

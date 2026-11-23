@@ -5,7 +5,7 @@ Arranque (desde la raíz del repositorio):
 Documentación interactiva: http://localhost:8000/docs
 
 Flujo: cada persona sube el .zip de su historial de Spotify (POST /historiales) → la API guarda solo los
-campos de escucha en data/entrada/historial/<persona>/ → reentrena en segundo plano con todos los
+campos de escucha en data/raw/<persona>/ (entrada de pipeline.sh) → reentrena en segundo plano con todos los
 historiales (unos segundos) → recarga el modelo y ya sirve predicciones y playlists con esa persona.
 """
 import logging
@@ -19,13 +19,14 @@ from fastapi.responses import JSONResponse
 
 from api.esquemas import Error, PeticionPlaylist, PeticionPrediccion, RespuestaPlaylist, RespuestaPrediccion
 from api import historiales
+from api.caracteristicas import carpeta_historial_por_defecto
 from api.preparacion import Preparacion
 from api.servicio import NOMBRES_FRANJA, ErrorEntrada, Servicio
 
 log = logging.getLogger("api")
 RAIZ = Path(__file__).resolve().parent.parent
 CARPETA_DATOS = Path(os.environ.get("API_DATOS", Path(__file__).resolve().parent / "datos"))
-CARPETA_HISTORIAL = Path(os.environ.get("API_HISTORIAL", RAIZ / "data" / "entrada" / "historial"))
+CARPETA_HISTORIAL = Path(os.environ.get("API_HISTORIAL", carpeta_historial_por_defecto(RAIZ)))
 MAX_SUBIDA = 400 * 1024 * 1024
 ESTADO: dict = {"servicio": None, "error_carga": None, "preparacion": None}
 

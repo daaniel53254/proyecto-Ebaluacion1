@@ -4,7 +4,7 @@ Uso (desde la raíz del repositorio):
     python -m api.preparar_datos                       # últimos 18 meses de los historiales subidos
     python -m api.preparar_datos --hasta 2025-07-01    # mismo periodo que la versión registrada en MLflow
 
-Lee los historiales de data/entrada/historial/<persona>/ y escribe en api/datos/:
+Lee los historiales de data/raw/<persona>/ (o, si no existe, de data/entrada/historial/<persona>/) y escribe en api/datos/:
     modelo.joblib     modelo de producción entrenado aquí con la configuración registrada en MLflow
     recuentos.csv.gz  escuchas y no saltos por persona × canción × contexto del periodo
     catalogo.csv.gz   canciones candidatas (nombre, artista, álbum, duración estimada)
@@ -29,7 +29,7 @@ from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import GroupKFold
 
-from api.caracteristicas import MIN_ESCUCHAS, ZONA, leer_historiales, recuentos, tabla, variables_oof
+from api.caracteristicas import MIN_ESCUCHAS, ZONA, carpeta_historial_por_defecto, leer_historiales, recuentos, tabla, variables_oof
 
 RAIZ = Path(__file__).resolve().parent.parent
 SALIDA = Path(__file__).resolve().parent / "datos"
@@ -113,7 +113,7 @@ def preparar(historial: Path, hasta: str = "auto", meses: int = 18, salida: Path
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--historial", type=Path, default=RAIZ / "data" / "entrada" / "historial")
+    ap.add_argument("--historial", type=Path, default=carpeta_historial_por_defecto(RAIZ))
     ap.add_argument("--hasta", default="auto",
                     help="fin (no incluido) del periodo, AAAA-MM-DD; «auto» = hasta la última escucha. "
                          "2025-07-01 reproduce el periodo de la versión registrada en MLflow")

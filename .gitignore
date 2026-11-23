@@ -9,9 +9,10 @@ data/.pipeline_en_marcha/
 # JSON de datos reales (los de configuración fuera de data/ sí se versionan)
 data/**/*.json
 
-# --- MLflow ---
+# --- MLflow (servidor local: entorno virtual, base de datos y artefactos) ---
 mlruns/
 mlflow.db
+.venv-mlflow/
 
 # --- Volúmenes y datos locales de Docker ---
 docker/volumes/
