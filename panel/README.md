@@ -38,7 +38,8 @@ la carpeta compartida de Drive. Si falta alguno, el panel avisa y se para.
 | Hábitos por persona | Escuchas, horas, canciones, artistas, tasa de no salto y % en aleatorio; reparto por hora, día de la semana, plataforma y forma de terminar; artistas más escuchados y canciones en común |
 | Calidad de datos | Filas en origen, bronze, silver y gold; los 8 problemas del ensuciado contados en bronze y en silver; comprobaciones sobre silver |
 | No salto por contexto | Tasa de no salto por franja de 4 horas y tipo de día, por persona y lote |
-| Recomendador | Lista del sistema frente a la de las más escuchadas en un contexto, cortadas por número de canciones o por duración del viaje; evaluación de las dos en el lote 2 (tasa de salto y NDCG) en ese contexto y en los 12 |
+| Recomendador | Lista del sistema frente a la de las más escuchadas en un contexto, cortadas por número de canciones o por duración del viaje; evaluación de las dos en el lote 2 (tasa de salto y NDCG) en ese contexto y en los 12. Se elige el modelo que predice el gusto: la Ridge del notebook 03 o el GB absoluto de la API |
+| Playlist del grupo | La playlist que daría la API (`POST /objetivo2/playlist`) con el modelo de producción (GB absoluto, últimos 18 meses): por contexto, por número de canciones o minutos, quitando artistas |
 
 En la barra lateral se eligen las personas y los años (estos solo filtran los hábitos).
 
@@ -49,7 +50,8 @@ En la barra lateral se eligen las personas y los años (estos solo filtran los h
 | Hábitos | `spotify_reproducciones.csv` (silver): hace falta la hora, la plataforma y el motivo de fin de cada escucha, que gold ya no tiene |
 | Calidad de datos | El último `docs/evidencias/pipeline_*.log` que termina en «Pipeline completado», y `spotify_reproducciones.csv` para las comprobaciones |
 | No salto por contexto | `gold_objetivo1.csv`: suma de `n_no_salto` ÷ suma de `n_escuchas` (no la media de tasas) |
-| Recomendador | `recomendador_gustos.csv` (lo guarda el notebook 03 de Ander) y `gold_candidatas.csv` |
+| Recomendador | `gold_candidatas.csv` y, según el modelo elegido, `recomendador_gustos.csv` (notebook 03) o `data/dataset/modelo_api_lote1/` (modelo de la API entrenado hasta el 30/06/2025) |
+| Playlist del grupo | `api/datos/` (modelo de producción y tablas que genera `python -m api.preparar_datos`) |
 
 **Recomendador.** El panel no entrena nada: sigue la sección 4 del notebook 03.
 
@@ -68,6 +70,24 @@ En la barra lateral se eligen las personas y los años (estos solo filtran los h
 
 Para regenerar el CSV, ejecutar el notebook 03 entero con el gold actual.
 
+**Modelo de la API.** El panel carga el modelo con la misma clase que la API (`api.servicio.Servicio`),
+así que da lo mismo que sus rutas sin tener que arrancar el servidor. Se preparan dos carpetas, las dos
+fuera de Git porque salen de los historiales:
+
+```bash
+.venv/Scripts/python -m api.preparar_datos                       # api/datos/: producción, últimos 18 meses
+.venv/Scripts/python -m api.preparar_datos --hasta 2025-07-01 --salida data/dataset/modelo_api_lote1
+```
+
+- La primera alimenta la pestaña **Playlist del grupo**. Como incluye el lote 2, esa lista no se evalúa.
+- La segunda es el mismo modelo entrenado del 01/01/2024 al 30/06/2025 (la versión registrada en
+  MLflow). En **Recomendador** sustituye a la Ridge solo donde no hay tasa real del lote 1, con la misma
+  regla, y así se puede evaluar con el lote 2. Con N = 50 da 33,4 % de salto (la Ridge 33,3 % y las más
+  escuchadas 29,7 %): cambiar de modelo no basta para ganar a la referencia.
+- Las personas de la API van con su nombre de carpeta; el panel las pasa a seudónimo con la función de
+  `bigdata/preparar.py`.
+- Si el modelo se regenera (por ejemplo, porque alguien sube su zip), el panel lo recarga solo.
+
 ## 4. Limitaciones
 
 - La evaluación con el lote 2 se apoya en pocas canciones (las que la persona volvió a escuchar al
@@ -78,3 +98,5 @@ Para regenerar el CSV, ejecutar el notebook 03 entero con el gold actual.
   personas, las candidatas pasan a ser las canciones que escucharon ellas en el lote 1 y el percentil
   se recalcula con `gusto` sobre ese conjunto (como propone el notebook 03).
 - Las personas aparecen con su seudónimo, igual que en HDFS.
+- El modelo de la API usa sus propias tablas (las escuchas del periodo leídas de `data/raw/`), no el gold
+  de Hive: sus cifras pueden diferir un 3 % de las del pipeline por los filtros de silver.

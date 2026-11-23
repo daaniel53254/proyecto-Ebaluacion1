@@ -294,6 +294,92 @@ def evaluar_todos(gustos: pd.DataFrame, candidatas: pd.DataFrame, personas: list
     return resumen.loc[["Sistema", "Más escuchadas"]]
 
 
+# ------------------------------------------------------------------- modelo de la API
+#
+# La API de Ander (`api/`) entrena el modelo de producción del notebook 05 (GB absoluto con los
+# últimos 18 meses) con `python -m api.preparar_datos` y lo deja con sus tablas en una carpeta.
+# El panel carga esa carpeta con la misma clase `Servicio` que usa la API, así que da lo mismo que
+# `POST /objetivo2/playlist` sin tener que arrancar el servidor. Dos carpetas:
+#   api/datos/                       producción: últimos 18 meses hasta la última escucha
+#   data/dataset/modelo_api_lote1/   mismo modelo entrenado hasta el 30/06/2025 (la versión de
+#                                    MLflow), para poder evaluarlo con el lote 2 sin hacer trampa
+
+DIR_API_PRODUCCION = RAIZ / "api" / "datos"
+DIR_API_LOTE1 = DIR_DATOS / "modelo_api_lote1"
+FICHEROS_API = ("modelo.joblib", "recuentos.csv.gz", "catalogo.csv.gz", "personas.csv")
+
+
+def hay_modelo_api(carpeta: Path) -> bool:
+    return all((carpeta / f).exists() for f in FICHEROS_API)
+
+
+def cargar_servicio(carpeta: Path):
+    """Servicio de la API (modelo + tablas) leído de la carpeta, sin MLflow ni servidor HTTP."""
+    import sys
+    if str(RAIZ) not in sys.path:
+        sys.path.insert(0, str(RAIZ))
+    from api.servicio import Servicio
+    return Servicio.desde_carpeta(carpeta, usar_mlflow=False)
+
+
+def seudonimos(nombres) -> dict[str, str]:
+    """Nombre de carpeta → seudónimo, con la misma función que usa preparar.py para HDFS."""
+    import sys
+    if str(RAIZ) not in sys.path:
+        sys.path.insert(0, str(RAIZ))
+    from bigdata.preparar import seudonimo
+    return {n: seudonimo(n) for n in nombres}
+
+
+def gustos_desde_api(servicio, candidatas: pd.DataFrame) -> pd.DataFrame:
+    """Gustos con la regla del notebook 03, cambiando solo el modelo: tasa real del lote 1 si hay
+    5 o más escuchas y, si no, la predicción del modelo de la API. Mismo formato que el CSV del 03."""
+    nombre = {v: k for k, v in seudonimos(servicio.personas.index).items()}   # seudónimo → nombre
+    c = candidatas[candidatas["persona"].isin(nombre)].reset_index(drop=True)
+    base = c[["persona", "track_id", "artista", "album", "franja", "tipo_dia"]].copy()
+    base["persona"] = base["persona"].map(nombre)
+    base[["artista", "album"]] = base[["artista", "album"]].fillna("?")
+    f = servicio._filas(base)                    # variables de persona y grupo, como la API
+    prevista = servicio._predecir_filas(f)
+    g = c[["persona", "track_id", "franja", "tipo_dia"]].copy()
+    real = c["tasa_real_lote1"]
+    g["gusto"] = real.fillna(pd.Series(prevista, index=c.index))
+    g["origen"] = np.where(real.notna(), "real", "prevista")
+    g["percentil"] = g.groupby(["persona", *CONTEXTO])["gusto"].rank(pct=True)
+    return g[COLS_GUSTOS]
+
+
+def playlist_api(servicio, personas: list[str], franja: int, tipo_dia: str, n: int | None = None,
+                 minutos: int | None = None, excluir_artistas=()) -> tuple[pd.DataFrame, dict]:
+    """Playlist del grupo con el modelo de la API. `personas` van con seudónimo; la tabla vuelve
+    con seudónimos y una columna de percentil y de origen por miembro."""
+    a_seud = seudonimos(servicio.personas.index)
+    nombre = {v: k for k, v in a_seud.items()}
+    r = servicio.playlist([nombre[p] for p in personas], franja, tipo_dia, n=n, duracion_min=minutos,
+                          excluir_artistas=list(excluir_artistas))
+    filas = []
+    for c in r["canciones"]:
+        fila = {k: c[k] for k in ("posicion", "track_id", "cancion", "artista", "duracion_s",
+                                  "gusto_grupo", "desempate")}
+        for nom, m in c["miembros"].items():
+            fila[f"percentil_{a_seud[nom]}"] = m["percentil"]
+            fila[f"gusto_{a_seud[nom]}"] = m["gusto"]
+            fila[f"origen_{a_seud[nom]}"] = m["origen"]
+        filas.append(fila)
+    return pd.DataFrame(filas), {k: v for k, v in r.items() if k != "canciones"}
+
+
+def mapa_gustos_api(servicio, personas: list[str], franja: int, tipo_dia: str) -> pd.DataFrame:
+    """Percentil de cada miembro (con seudónimo) para todas las candidatas del contexto: una fila por
+    canción, para dibujar dónde cae la playlist respecto al resto."""
+    a_seud = seudonimos(servicio.personas.index)
+    nombre = {v: k for k, v in a_seud.items()}
+    g = servicio.gustos([nombre[p] for p in personas], franja, tipo_dia)
+    t = g.pivot_table(index="track_id", columns="persona", values="percentil", aggfunc="first")
+    t.columns = [f"percentil_{a_seud[c]}" for c in t.columns]
+    return t.join(servicio.catalogo[["cancion", "artista"]]).reset_index()
+
+
 if __name__ == "__main__":
     log = ultimo_log()
     print("Último log:", log)

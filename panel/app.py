@@ -68,21 +68,32 @@ def calidad(ruta: str):
     return D.calidad_desde_log(Path(ruta))
 
 
-def _marca_gustos() -> float:
-    """Fecha de modificación del CSV del notebook 03, para recargarlo si Ander lo regenera."""
-    ruta = D.DIR_DATOS / D.ARCHIVO_GUSTOS
+def marca(ruta: Path) -> float:
+    """Fecha de modificación de un fichero, para recargar si se regenera (0 si no existe).
+    Va como argumento normal (sin «_») para que Streamlit la tenga en cuenta en la caché."""
     return ruta.stat().st_mtime if ruta.exists() else 0.0
 
 
-@st.cache_data(show_spinner="Leyendo los gustos del recomendador…")
-def gustos(_marca: float):
+FUENTE_RIDGE = "Ridge · notebook 03"
+FUENTE_API = "GB absoluto · modelo de la API"
+
+
+@st.cache_resource(show_spinner="Cargando el modelo de la API…", max_entries=2)
+def servicio_api(carpeta: str, version: float):
+    return D.cargar_servicio(Path(carpeta))
+
+
+@st.cache_data(show_spinner="Calculando los gustos del recomendador…", max_entries=4)
+def gustos(fuente: str, version: float):
+    if fuente == FUENTE_API:
+        return D.gustos_desde_api(servicio_api(str(D.DIR_API_LOTE1), version), candidatas()), "api"
     g = D.cargar_gustos()
     return (g, "notebook") if g is not None else (D.gustos_aproximados(candidatas()), "aproximados")
 
 
 @st.cache_data(show_spinner="Evaluando las dos listas en los 12 contextos…")
-def resumen_contextos(_marca: float, personas_sel: tuple, n, minutos):
-    g, _ = gustos(_marca)
+def resumen_contextos(fuente: str, version: float, personas_sel: tuple, n, minutos):
+    g, _ = gustos(fuente, version)
     return D.evaluar_todos(g, candidatas(), list(personas_sel), n=n, minutos=minutos)
 
 
@@ -117,8 +128,9 @@ with st.sidebar:
         "No salto = cualquier fin que no sea pasar de canción antes de 30 s."
     )
 
-tab_hab, tab_cal, tab_ctx, tab_pl = st.tabs(
-    ["Hábitos por persona", "Calidad de datos", "No salto por contexto", "Recomendador"]
+tab_hab, tab_cal, tab_ctx, tab_pl, tab_api = st.tabs(
+    ["Hábitos por persona", "Calidad de datos", "No salto por contexto", "Recomendador",
+     "Playlist del grupo"]
 )
 
 # ------------------------------------------------------------------------- 1. hábitos
@@ -330,10 +342,25 @@ with tab_ctx:
 # ------------------------------------------------------------------- 4. recomendador
 
 with tab_pl:
-    marca = _marca_gustos()
-    gu, fuente = gustos(marca)
+    opciones = [FUENTE_RIDGE] + ([FUENTE_API] if D.hay_modelo_api(D.DIR_API_LOTE1) else [])
+    fuente_sel = st.radio(
+        "Modelo que predice el gusto cuando no hay tasa real", opciones, horizontal=True,
+        index=len(opciones) - 1,
+        help="La regla del recomendador es la misma; solo cambia el modelo del objetivo 1.")
+    if len(opciones) == 1:
+        st.caption("Para comparar con el modelo de la API, genera su versión entrenada hasta el 30/06/2025: "
+                   "`python -m api.preparar_datos --hasta 2025-07-01 --salida data/dataset/modelo_api_lote1`.")
+    version = (marca(D.DIR_API_LOTE1 / "modelo.joblib") if fuente_sel == FUENTE_API
+               else marca(D.DIR_DATOS / D.ARCHIVO_GUSTOS))
+    gu, fuente = gustos(fuente_sel, version)
     pct_real = (gu["origen"] == "real").mean()
-    if fuente == "notebook":
+    if fuente == "api":
+        st.success(
+            "Gustos con el modelo de producción del notebook 05 (GB absoluto, ventana de 18 meses) tal y como "
+            "lo entrena la API, pero hasta el 30/06/2025, para que el lote 2 siga siendo prueba. "
+            f"{pct(pct_real)} son tasas reales del lote 1; el resto, la predicción de ese modelo."
+        )
+    elif fuente == "notebook":
         st.success(
             f"Gustos del recomendador de `data/dataset/{D.ARCHIVO_GUSTOS}` (notebook 03). "
             f"{pct(pct_real)} son tasas reales del lote 1; el resto, la predicción del modelo del objetivo 1."
@@ -447,7 +474,7 @@ with tab_pl:
     st.subheader("Los 12 contextos")
     st.caption("Misma agregación que el notebook 03: media de cada persona sobre los contextos en los que "
                "tiene canciones evaluadas y, después, media de las personas.")
-    rc = resumen_contextos(marca, tuple(sel_personas), n_sel, min_sel)
+    rc = resumen_contextos(fuente_sel, version, tuple(sel_personas), n_sel, min_sel)
     st.dataframe(
         rc.reset_index(), hide_index=True, width="stretch",
         column_config={
@@ -465,3 +492,122 @@ with tab_pl:
     else:
         st.error(f"Hipótesis sin cumplir todavía: el sistema salta {pct(s)} frente a {pct(r)} de la lista "
                  "de las más escuchadas.")
+
+# ------------------------------------------------------- 5. playlist con el modelo de la API
+
+with tab_api:
+    if not D.hay_modelo_api(D.DIR_API_PRODUCCION):
+        st.warning("Falta el modelo de la API en `api/datos/`. Genéralo desde la raíz del repositorio con "
+                   "`python -m api.preparar_datos` (la API lo hace sola cada vez que alguien sube o borra su zip).")
+        st.stop()
+    srv = servicio_api(str(D.DIR_API_PRODUCCION), marca(D.DIR_API_PRODUCCION / "modelo.joblib"))
+    inf = srv.info
+
+    seud_api = D.seudonimos(srv.personas.index)
+    en_api = [p for p in sel_personas if p in seud_api.values()]
+    fuera = [p for p in sel_personas if p not in seud_api.values()]
+    if fuera:
+        st.warning(f"No están en el modelo de la API: {', '.join(fuera)}.")
+    if not en_api:
+        st.stop()
+
+    st.markdown("### Vuestra playlist para el viaje")
+    st.caption("Lo que devolvería la API (`POST /objetivo2/playlist`) con el modelo de producción. Cada canción "
+               "vale lo que le gusta **al que menos le gusta** del grupo, para que nadie tenga que saltarla.")
+
+    with st.container(border=True):
+        c = st.columns([1, 1, 1.2, 1.6])
+        franja_a = c[0].selectbox("Franja", list(D.FRANJAS), index=4, format_func=lambda f: f"{D.FRANJAS[f]} h",
+                                  key="api_franja")
+        tipo_a = c[1].selectbox("Día", list(D.TIPOS_DIA), index=1, format_func=D.TIPOS_DIA.get, key="api_tipo")
+        modo_a = c[2].segmented_control("Longitud", ["Canciones", "Minutos"], default="Canciones",
+                                        key="api_modo") or "Canciones"
+        if modo_a == "Canciones":
+            n_a = c[3].select_slider("Número de canciones", options=[10, 20, 30, 50, 75, 100], value=30,
+                                     key="api_n")
+            min_a = None
+        else:
+            n_a, min_a = None, c[3].slider("Duración del viaje (min)", 15, 300, 120, step=15, key="api_min")
+        excluir = st.multiselect("Quitar artistas", sorted(srv.catalogo["artista"].dropna().unique()),
+                                 key="api_excluir", placeholder="Ninguno")
+
+    lista, cab = D.playlist_api(srv, en_api, franja_a, tipo_a, n=n_a, minutos=min_a, excluir_artistas=excluir)
+    if lista.empty:
+        st.info("No queda ninguna canción con estos filtros.")
+        st.stop()
+    todos_real = lista[[f"origen_{p}" for p in en_api]].eq("real").all(axis=1).mean()
+    minutos_tot = cab["duracion_total_min"]
+
+    k = st.columns(4)
+    k[0].metric("Canciones", cab["n_canciones"], border=True)
+    k[1].metric("Duración", f"{int(minutos_tot // 60)} h {int(round(minutos_tot % 60)):02d} min", border=True)
+    k[2].metric("Artistas distintos", lista["artista"].nunique(), border=True)
+    k[3].metric("Con gusto real de todos", pct(todos_real), border=True,
+                help="Canciones que todos los miembros han escuchado 5 o más veces en este contexto: "
+                     "su gusto es real, no una predicción del modelo.")
+
+    v = lista[["posicion", "cancion", "artista"]].copy()
+    v["duracion"] = lista["duracion_s"].map(lambda s: "—" if pd.isna(s) else f"{int(s) // 60}:{int(s) % 60:02d}")
+    for p in en_api:
+        v[f"percentil_{p}"] = lista[f"percentil_{p}"]
+    v["gusto_grupo"] = lista["gusto_grupo"]
+    v["spotify"] = "https://open.spotify.com/track/" + lista["track_id"]
+    st.dataframe(
+        v, hide_index=True, width="stretch", height=min(38 + 35 * len(v), 640),
+        column_config={
+            "posicion": st.column_config.NumberColumn("#", format="%d", width="small"),
+            "cancion": st.column_config.TextColumn("Canción", width="medium"),
+            "artista": st.column_config.TextColumn("Artista", width="medium"),
+            "duracion": st.column_config.TextColumn("Dur.", width="small"),
+            **{f"percentil_{p}": st.column_config.ProgressColumn(
+                p.replace("persona_", "")[:4], min_value=0, max_value=1, format="%.2f", width="small",
+                color=color_persona[p],
+                help=f"Percentil de gusto de {p} (1 = de sus canciones favoritas en este contexto)")
+               for p in en_api},
+            "gusto_grupo": st.column_config.ProgressColumn(
+                "Grupo", min_value=0, max_value=1, format="%.2f", width="small", color="#1baf7a",
+                help="El mínimo de los percentiles: lo que le gusta al que menos le gusta."),
+            "spotify": st.column_config.LinkColumn("", display_text="▶ Spotify", width="small"),
+        },
+    )
+
+    col_g1, col_g2 = st.columns(2, gap="large")
+    with col_g1:
+        media = pd.DataFrame({"persona": en_api,
+                              "gusto": [lista[f"percentil_{p}"].mean() for p in en_api]})
+        fig = px.bar(media, x="gusto", y="persona", orientation="h", color="persona",
+                     color_discrete_map=color_persona, text="gusto",
+                     title="Cuánto le gusta la playlist a cada uno", labels={"gusto": "", "persona": ""})
+        fig.update_traces(texttemplate="%{x:.2f}", textposition="outside", showlegend=False,
+                          hovertemplate="%{y}<br>Percentil medio %{x:.2f}<extra></extra>")
+        fig.update_xaxes(range=[0, 1.12], showticklabels=False)
+        fig.update_layout(bargap=0.55)
+        st.plotly_chart(plantilla(fig, 110 + 32 * 8), width="stretch")
+        st.caption("Percentil medio de las canciones de la lista para cada miembro (1 = sus favoritas en este "
+                   "contexto). Si a alguien le sale cerca de 0,5, el modelo no distingue sus gustos.")
+    with col_g2:
+        art = lista["artista"].value_counts().head(8).sort_values()
+        fig = px.bar(x=art.values, y=art.index, orientation="h", title="Artistas que más se repiten",
+                     labels={"x": "Canciones", "y": ""})
+        fig.update_traces(marker_color=COLORES[0], hovertemplate="%{y}: %{x} canciones<extra></extra>")
+        fig.update_xaxes(dtick=1)
+        st.plotly_chart(plantilla(fig, 110 + 32 * len(art)), width="stretch")
+
+    with st.expander("Sobre el modelo"):
+        m = st.columns(4)
+        m[0].metric("Periodo de entrenamiento", f"{inf['periodo']['meses']} meses",
+                    help=f"Del {inf['periodo']['desde']} al {inf['periodo']['hasta']}")
+        m[1].metric("Filas de entrenamiento", miles(inf["filas_entrenamiento"]))
+        m[2].metric("MAE de validación", f"{inf['cv_mae']:.3f}".replace(".", ","))
+        m[3].metric("Canciones candidatas", miles(inf["canciones_catalogo"]))
+        st.markdown(
+            "GB absoluto (el modelo de producción del notebook 05) entrenado con los últimos 18 meses de todos los "
+            "historiales. Gusto de cada miembro: su tasa real de no salto si tiene 5 o más escuchas de la canción "
+            "en ese contexto y, si no, la predicción del modelo; se pasa a percentil dentro de la persona. "
+            "Gusto del grupo = el mínimo; los empates se deshacen con la media."
+        )
+        st.caption(f"Entrenado del {inf['periodo']['desde']} al {inf['periodo']['hasta']}; preparado el "
+                   f"{inf['preparado'].replace('T', ' a las ')} · {srv.origen_modelo}. Como el periodo incluye el "
+                   "lote 2, esta lista no se evalúa con él: la comparación con las más escuchadas está en la "
+                   "pestaña Recomendador. Para añadir a alguien, sube su zip a la API o copia sus JSON en "
+                   "`data/raw/<nombre>/` y ejecuta `python -m api.preparar_datos`; el panel recarga el modelo solo.")
