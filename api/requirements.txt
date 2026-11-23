@@ -1,0 +1,11 @@
+# API del proyecto (además de pandas, numpy y scikit-learn, que ya trae Anaconda)
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9  # subida de ficheros (POST /historiales)
+httpx>=0.27          # solo para las pruebas (TestClient)
+pytest>=8            # solo para las pruebas
+joblib
+pandas
+numpy
+scikit-learn
+# mlflow             # opcional: para cargar el modelo del registro (variable MLFLOW_TRACKING_URI)
