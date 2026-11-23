@@ -2,8 +2,8 @@
 
 Cada persona sube su zip; se guardan solo los ficheros Streaming_History_Audio_*.json y, dentro de ellos,
 solo los campos que usa el proyecto (sin IP, país ni identificadores del dispositivo). Se escriben en
-data/entrada/historial/<persona>/, la misma carpeta que ingiere pipeline.sh, así que lo subido por la API
-también entra en HDFS en la siguiente ejecución del pipeline.
+data/raw/<persona>/, la carpeta de entrada de pipeline.sh, así que lo subido por la API también entra
+en HDFS (bronze, silver y gold) en la siguiente ejecución del pipeline.
 """
 import io
 import json
@@ -82,7 +82,7 @@ def listar(carpeta_historial: Path) -> list[dict]:
     if not carpeta.exists():
         return []
     return [{"persona": p.name, "ficheros": len(list(p.glob("**/Streaming_History_Audio_*.json")))}
-            for p in sorted(carpeta.iterdir()) if p.is_dir() and not p.name.startswith(".")]
+            for p in sorted(carpeta.iterdir()) if p.is_dir() and not p.name.startswith((".", "persona="))]
 
 
 def borrar(persona: str, carpeta_historial: Path) -> bool:

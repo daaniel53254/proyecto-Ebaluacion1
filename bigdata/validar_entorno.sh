@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Valida el entorno local: contenedores, HDFS, Hive y MLflow.
+# Valida el entorno local: contenedores, HDFS, Hive y MLflow (este último en local, fuera de Docker).
 # Uso (desde la raíz del repo):  bash bigdata/validar_entorno.sh
 # Funciona en Linux, macOS y Windows (Git Bash o WSL).
 set -euo pipefail
@@ -9,7 +9,7 @@ export MSYS_NO_PATHCONV=1
 export MSYS2_ARG_CONV_EXCL="*"
 
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CONTENEDORES=(namenode datanode resourcemanager nodemanager hive-metastore-postgresql hive-metastore hiveserver2 mlflow)
+CONTENEDORES=(namenode datanode resourcemanager nodemanager hive-metastore-postgresql hive-metastore hiveserver2)
 ESPERA_MAX=300          # segundos que se espera a que todo esté healthy
 ARCHIVO=prueba_validacion.csv   # sin "_" ni "." delante: Hive ignora esos ficheros
 JDBC="jdbc:hive2://localhost:10000"
@@ -93,9 +93,9 @@ quedan="$(beeline -e "SHOW TABLES IN bronze LIKE 'prueba_validacion';" 2>/dev/nu
 ok "Tabla externa creada, consultada (3 filas) y borrada"
 
 # ---------------------------------------------------------------- 5
-paso "5/5 MLflow en http://localhost:5000"
-codigo="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://localhost:5000/ || true)"
-[ "$codigo" = "200" ] || error "MLflow no responde (HTTP '$codigo')"
+paso "5/5 MLflow local en http://localhost:5000"
+codigo="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://localhost:5000/health || true)"
+[ "$codigo" = "200" ] || error "MLflow no responde (HTTP '$codigo'). Arráncalo con: bash servidor_mlflow.sh arrancar"
 ok "MLflow responde (HTTP 200)"
 
 printf '\n\033[1;32mEntorno validado correctamente.\033[0m\n'

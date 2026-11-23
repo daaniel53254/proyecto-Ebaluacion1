@@ -93,3 +93,17 @@ def test_pocos_datos_da_error_claro(tmp_path):
     prep = Preparacion(tmp_path / "h", tmp_path / "d", lambda s: None)
     prep.lanzar("prueba"); time.sleep(0.2); estado = prep.esperar()
     assert estado["estado"] == "error" and "pocos datos" in estado["error"]
+
+
+def test_carpeta_por_defecto_y_salida_del_pipeline(tmp_path):
+    from api.caracteristicas import _es_persona, carpeta_historial_por_defecto
+    assert carpeta_historial_por_defecto(tmp_path) == tmp_path / "data" / "raw"
+    antigua = tmp_path / "data" / "entrada" / "historial"
+    (antigua / "persona=1a2b3c4d").mkdir(parents=True)                  # salida de bigdata/preparar.py
+    assert carpeta_historial_por_defecto(tmp_path) == tmp_path / "data" / "raw"
+    (antigua / "ander").mkdir()
+    assert carpeta_historial_por_defecto(tmp_path) == antigua           # instalación antigua
+    (tmp_path / "data" / "raw").mkdir()
+    assert carpeta_historial_por_defecto(tmp_path) == tmp_path / "data" / "raw"
+    assert not _es_persona(antigua / "persona=1a2b3c4d") and _es_persona(antigua / "ander")
+    assert [h["persona"] for h in historiales.listar(antigua)] == ["ander"]

@@ -1,7 +1,7 @@
 # Proyecto Ebaluacion1
 
 Entorno local en Docker para la parte de Big Data del proyecto (especialidad de IA y Big Data).
-Solo se usa Hadoop y su ecosistema: **HDFS, YARN y Hive**. No se usa PySpark. Se incluye además un servidor de **MLflow** para el seguimiento de experimentos.
+Solo se usa Hadoop y su ecosistema: **HDFS, YARN y Hive**, en Docker. No se usa PySpark. El seguimiento de experimentos y el registro de modelos se hacen con **MLflow instalado en local** (fuera de Docker): `bash servidor_mlflow.sh arrancar`.
 
 > **¿Primera vez?** Sigue la [guía de instalación](INSTALACION.md) o ejecuta directamente `bash instalar.sh` desde la raíz del repositorio: comprueba requisitos, arranca todo y lo valida.
 
@@ -22,6 +22,7 @@ Solo se usa Hadoop y su ecosistema: **HDFS, YARN y Hive**. No se usa PySpark. Se
 
 - **Docker Desktop** (Windows o macOS) o **Docker Engine** con el plugin Compose v2 (Linux). El motor tiene que estar arrancado antes de lanzar ningún comando.
 - **Bash** para el script de validación: en Windows vale **Git Bash** (viene con Git for Windows) o WSL; en macOS y Linux ya está instalado.
+- **Python 3.9 o superior** (python.org o Anaconda) para el servidor local de MLflow, los notebooks y la API.
 - Unos **8 GB de RAM** asignados a Docker y unos **12 GB de disco** para las imágenes.
 - Puertos libres en el equipo: 5000, 8088, 9000, 9870 y 10000.
 
@@ -59,7 +60,7 @@ proyecto-Ebaluacion1/
     └── dataset/            CSV de silver y gold exportados para los notebooks (no se suben a Git)
 ```
 
-La carpeta `mlruns/` la crea Docker al arrancar y guarda los artefactos de MLflow. Está excluida de Git.
+La carpeta `mlruns/` guarda los datos del servidor local de MLflow (`mlruns/mlflow.db` y los artefactos) y `.venv-mlflow/` su entorno virtual de Python. Las dos están excluidas de Git.
 
 ## Arrancar el entorno
 
@@ -88,11 +89,11 @@ bash bigdata/validar_entorno.sh
 
 El script hace cinco comprobaciones y se detiene en la primera que falle:
 
-1. Espera a que los ocho contenedores estén en estado `healthy`.
+1. Espera a que los siete contenedores estén en estado `healthy`.
 2. Crea `/bronze`, `/silver` y `/gold` en HDFS y las lista.
 3. Sube un archivo de prueba a `/bronze/test/` desde la carpeta montada `/entrada` y muestra su tamaño.
 4. Con beeline crea la base de datos `bronze` y una tabla externa sobre ese archivo, hace un `SELECT COUNT(*)` y borra la tabla.
-5. Comprueba que MLflow responde en `http://localhost:5000`.
+5. Comprueba que el servidor local de MLflow responde en `http://localhost:5000` (si no está arrancado: `bash servidor_mlflow.sh arrancar`, o doble clic en `servidor_mlflow.bat` en Windows con Anaconda).
 
 Al terminar borra el archivo de prueba, tanto en `data/entrada` como en HDFS. Las carpetas `/bronze`, `/silver`, `/gold` y la base de datos `bronze` se conservan.
 
@@ -142,7 +143,7 @@ Los notebooks leen los CSV que deja el pipeline en `data/dataset/` (silver y gol
 mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5055
 ```
 
-y abre `http://localhost:5055`. Con el Docker arrancado también se puede apuntar a `http://localhost:5000`.
+y abre `http://localhost:5055`. Si el servidor local de MLflow está en marcha (`bash servidor_mlflow.sh arrancar`), los notebooks registran directamente en `http://localhost:5000`.
 
 ## Parar el entorno
 
@@ -152,9 +153,10 @@ Desde la carpeta `docker/`:
 |---|---|
 | Parar y conservar los datos | `docker compose down` |
 | Parar sin eliminar los contenedores | `docker compose stop` |
-| Parar y **borrar todos los datos** (HDFS, metastore y MLflow) | `docker compose down -v` |
+| Parar y **borrar todos los datos** de HDFS y del metastore | `docker compose down -v` |
+| Arrancar / parar MLflow (local, desde la raíz) | `bash servidor_mlflow.sh arrancar` / `bash servidor_mlflow.sh parar` |
 
-Los datos de HDFS, del metastore de Hive y de MLflow están en volúmenes con nombre, así que sobreviven a `down` y a reiniciar el equipo. Solo se pierden con `down -v`.
+Los datos de HDFS y del metastore de Hive están en volúmenes con nombre, así que sobreviven a `down` y a reiniciar el equipo. Solo se pierden con `down -v`. Los de MLflow están en `mlruns/` y no dependen de Docker.
 
 ## Puertos y URLs
 
@@ -164,7 +166,7 @@ Los datos de HDFS, del metastore de Hive y de MLflow están en volúmenes con no
 | HDFS, RPC | `namenode` | 9000 | `hdfs://localhost:9000` |
 | YARN, interfaz web | `resourcemanager` | 8088 | http://localhost:8088 |
 | HiveServer2 | `hiveserver2` | 10000 | `jdbc:hive2://localhost:10000` |
-| MLflow | `mlflow` | 5000 | http://localhost:5000 |
+| MLflow (local, sin Docker) | — | 5000 | http://localhost:5000 |
 
 Sin puerto publicado en el equipo: `datanode`, `nodemanager`, `hive-metastore` (9083) y `hive-metastore-postgresql` (5432).
 

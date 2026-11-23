@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  Instalación del entorno de Big Data (HDFS + YARN + Hive + MLflow)
+#  Instalación del entorno: Big Data en Docker (HDFS + YARN + Hive) y MLflow en local
 #  Proyecto Ebaluacion1
 #
 #  Uso, desde la raíz del repositorio:
@@ -8,12 +8,14 @@
 #      bash instalar.sh --rapido   igual, pero sin el script de validación
 #
 #  Sirve para Windows (Git Bash o WSL), macOS y Linux.
+#  MLflow no va en Docker: se instala en un entorno virtual de Python (.venv-mlflow)
+#  y se arranca con servidor_mlflow.sh.
 # =============================================================================
 set -euo pipefail
 
 export MSYS_NO_PATHCONV=1   # Git Bash: no convertir rutas tipo /bronze
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PUERTOS=(9870 9000 8088 10000 5000)
+PUERTOS=(9870 9000 8088 10000)   # el 5000 (MLflow local) lo comprueba servidor_mlflow.sh
 VALIDAR=1
 [ "${1:-}" = "--rapido" ] && VALIDAR=0
 
@@ -23,7 +25,7 @@ aviso() { printf '\033[1;33m[AVISO]\033[0m %s\n' "$*"; }
 error() { printf '\033[1;31m[ERROR]\033[0m %s\n' "$*" >&2; exit 1; }
 
 # ----------------------------------------------------------------- 1. Sistema
-paso "1/6 Sistema operativo"
+paso "1/7 Sistema operativo"
 case "$(uname -s)" in
   Linux*)
     if grep -qi microsoft /proc/version 2>/dev/null; then SO="WSL"; else SO="Linux"; fi ;;
@@ -40,7 +42,7 @@ if [[ "$ARQ" == "arm64" || "$ARQ" == "aarch64" ]]; then
 fi
 
 # ---------------------------------------------------------- 2. Herramientas
-paso "2/6 Herramientas necesarias"
+paso "2/7 Herramientas necesarias"
 command -v git    >/dev/null || error "Falta Git. Instálalo desde https://git-scm.com/downloads"
 ok "Git $(git --version | awk '{print $3}')"
 command -v docker >/dev/null || error "Falta Docker. Instala Docker Desktop: https://www.docker.com/products/docker-desktop/"
@@ -49,7 +51,7 @@ ok "$(docker compose version)"
 command -v curl   >/dev/null || error "Falta curl."
 
 # ------------------------------------------------------- 3. Motor de Docker
-paso "3/6 Motor de Docker"
+paso "3/7 Motor de Docker"
 if ! docker info >/dev/null 2>&1; then
   aviso "Docker no está arrancado. Intento abrirlo..."
   case "$SO" in
@@ -71,7 +73,7 @@ else
 fi
 
 # -------------------------------------------------------------- 4. Puertos
-paso "4/6 Puertos libres"
+paso "4/7 Puertos libres"
 cd "$RAIZ/docker"
 if [ -n "$(docker compose ps -q 2>/dev/null)" ]; then
   ok "El entorno ya estaba creado: se reutiliza"
@@ -90,15 +92,19 @@ else
 fi
 
 # ------------------------------------------------------------- 5. Arranque
-paso "5/6 Descarga de imágenes y arranque (la primera vez tarda: ~12 GB)"
+paso "5/7 Descarga de imágenes y arranque de Docker (la primera vez tarda: ~12 GB)"
 mkdir -p "$RAIZ/data/entrada" "$RAIZ/mlruns"
 docker compose pull
-docker compose up -d --wait --wait-timeout 600 \
+docker compose up -d --remove-orphans --wait --wait-timeout 600 \
   || { docker compose ps; error "Algún servicio no ha arrancado. Mira sus registros con: cd docker && docker compose logs <servicio>"; }
 docker compose ps --format 'table {{.Name}}\t{{.Status}}'
 
-# ----------------------------------------------------------- 6. Validación
-paso "6/6 Validación"
+# ---------------------------------------------------------- 6. MLflow local
+paso "6/7 MLflow en local (Python, fuera de Docker)"
+bash "$RAIZ/servidor_mlflow.sh" arrancar
+
+# ----------------------------------------------------------- 7. Validación
+paso "7/7 Validación"
 if [ "$VALIDAR" -eq 1 ]; then
   bash "$RAIZ/bigdata/validar_entorno.sh"
 else
@@ -111,7 +117,7 @@ cat <<'EOF'
     HDFS (web)    http://localhost:9870
     YARN          http://localhost:8088
     HiveServer2   jdbc:hive2://localhost:10000
-    MLflow        http://localhost:5000
+    MLflow        http://localhost:5000   (local: bash servidor_mlflow.sh parar|arrancar)
 
-  Para pararlo:   cd docker && docker compose down
+  Para parar Docker:   cd docker && docker compose down
 EOF
