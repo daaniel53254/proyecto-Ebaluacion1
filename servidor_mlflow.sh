@@ -79,8 +79,18 @@ arrancar() {
 parar() {
   if ! responde; then ok "MLflow no estaba en marcha"; rm -f "$DATOS/servidor.pid"; return; fi
   if es_windows; then
-    powershell.exe -NoProfile -Command \
-      "Get-NetTCPConnection -LocalPort $PUERTO -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id \$_.OwningProcess -Force }" \
+    # En Windows el proceso que figura como dueño del puerto puede haber terminado ya mientras sus hijos
+    # (los workers de uvicorn) siguen sirviendo con el socket heredado: se para el árbol entero, huérfanos incluidos.
+    local pid_fichero=0
+    [ -f "$DATOS/servidor.pid" ] && pid_fichero="$(cat "$DATOS/servidor.pid")"
+    powershell.exe -NoProfile -Command "
+      function Stop-Arbol([int]\$id) {
+        Get-CimInstance Win32_Process -Filter \"ParentProcessId=\$id\" | ForEach-Object { Stop-Arbol \$_.ProcessId }
+        Stop-Process -Id \$id -Force -ErrorAction SilentlyContinue
+      }
+      \$ids = @(Get-NetTCPConnection -LocalPort $PUERTO -State Listen -ErrorAction SilentlyContinue | ForEach-Object { \$_.OwningProcess })
+      if ($pid_fichero -gt 0) { \$ids += $pid_fichero }
+      \$ids | Sort-Object -Unique | ForEach-Object { Stop-Arbol \$_ }" \
       >/dev/null 2>&1 || true
   fi
   [ -f "$DATOS/servidor.pid" ] && kill "$(cat "$DATOS/servidor.pid")" 2>/dev/null || true
