@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ErrorHistorial, normalizarPersona, prepararHistorial } from "@/lib/historial";
 
@@ -71,6 +71,32 @@ describe("prepararHistorial", () => {
     await expect(prepararHistorial([roto])).rejects.toThrow("El fichero no es un .zip válido");
   });
 
+  it("descarta nombres que la API rechazaría", async () => {
+    const r = await prepararHistorial([
+      jsonSuelto("Streaming_History_Audio_2024 (1).json"),
+      jsonSuelto("Streaming_History_Audio_2024.json"),
+    ]);
+    expect(r.incluidos).toEqual(["Streaming_History_Audio_2024.json"]);
+    expect(r.descartados.map((d) => d.nombre)).toEqual(["Streaming_History_Audio_2024 (1).json"]);
+  });
+
+  it("solo descomprime los ficheros que va a incluir", async () => {
+    const zip = await zipCon({
+      "a/Streaming_History_Audio_2024.json": "[]",
+      "b/Streaming_History_Audio_2024.json": "[]",
+      "a/Streaming_History_Video_2024.json": "[]",
+      "__MACOSX/._x": "x",
+    });
+    const entrada = Object.values((await JSZip.loadAsync(await zip.arrayBuffer())).files)[0];
+    if (!entrada) throw new Error("zip de prueba vacío");
+    const espia = vi.spyOn(Object.getPrototypeOf(entrada), "async");
+    const r = await prepararHistorial([zip]);
+    expect(r.incluidos).toHaveLength(1);
+    expect(r.descartados).toHaveLength(3);
+    expect(espia).toHaveBeenCalledTimes(1);
+    espia.mockRestore();
+  });
+
   it("duplicados en carpetas distintas", async () => {
     const zip = await zipCon({
       "a/Streaming_History_Audio_2024.json": "[]",
@@ -88,6 +114,9 @@ describe("normalizarPersona", () => {
     ["Ana Lopez", "ana_lopez"],
     ["Aitor", "aitor"],
     ["a", null],
+    ["-ab", null],
+    ["_ab", null],
+    ["ana  lopez", "ana__lopez"],
     ["daniel-2", "daniel-2"],
   ])("normalizarPersona(%j)", (entrada, esperado) => {
     expect(normalizarPersona(entrada)).toBe(esperado);

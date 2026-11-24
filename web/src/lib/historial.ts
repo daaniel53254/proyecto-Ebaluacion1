@@ -14,12 +14,13 @@ export type HistorialPreparado = {
   bytes: number;
 };
 
-type Candidato = { nombre: string; contenido: ArrayBuffer };
+type Candidato = { nombre: string; leer: () => Promise<ArrayBuffer> };
 
 export class ErrorHistorial extends Error {}
 
-const PATRON_AUDIO = /^Streaming_History_Audio_.*\.json$/i;
-const PATRON_PERSONA = /^[a-z0-9_-]{2,30}$/;
+// Mismos patrones que la API (api/historiales.py): lo que la web acepta, la API también.
+const PATRON_AUDIO = /^Streaming_History_Audio_[\w-]+\.json$/i;
+const PATRON_PERSONA = /^[a-z0-9][a-z0-9_-]{1,29}$/;
 
 const esZip = (archivo: File) => archivo.name.toLowerCase().endsWith(".zip");
 
@@ -29,22 +30,19 @@ const candidatosDeZip = async (archivo: File): Promise<Candidato[]> => {
   const zip = await JSZip.loadAsync(await archivo.arrayBuffer()).catch(() => {
     throw new ErrorHistorial("El fichero no es un .zip válido");
   });
-  const entradas = Object.values(zip.files).filter((entrada) => !entrada.dir);
-  return Promise.all(
-    entradas.map(async (entrada) => ({
+  return Object.values(zip.files)
+    .filter((entrada) => !entrada.dir)
+    .map((entrada) => ({
       nombre: nombreSinCarpeta(entrada.name),
-      contenido: await entrada.async("arraybuffer"),
-    })),
-  );
+      leer: () => entrada.async("arraybuffer"),
+    }));
 };
 
-const candidatosSueltos = (archivos: File[]): Promise<Candidato[]> => {
-  return Promise.all(
-    archivos.map(async (archivo) => ({ nombre: archivo.name, contenido: await archivo.arrayBuffer() })),
-  );
+const candidatosSueltos = (archivos: File[]): Candidato[] => {
+  return archivos.map((archivo) => ({ nombre: archivo.name, leer: () => archivo.arrayBuffer() }));
 };
 
-const candidatosDe = (archivos: File[]): Promise<Candidato[]> => {
+const candidatosDe = async (archivos: File[]): Promise<Candidato[]> => {
   const zips = archivos.filter(esZip);
   if (zips.length === 0) return candidatosSueltos(archivos);
   if (zips.length !== archivos.length) {
@@ -55,20 +53,24 @@ const candidatosDe = (archivos: File[]): Promise<Candidato[]> => {
   return candidatosDeZip(unico);
 };
 
-export const prepararHistorial = async (archivos: File[]): Promise<HistorialPreparado> => {
-  const candidatos = await candidatosDe(archivos);
-  const incluidos = new Map<string, ArrayBuffer>();
+// Se decide por el nombre antes de descomprimir: solo se lee lo que se va a subir.
+const clasificar = (candidatos: Candidato[]) => {
+  const incluidos = new Map<string, Candidato>();
   const descartados: Descartado[] = [];
-
-  for (const { nombre, contenido } of candidatos) {
-    if (!PATRON_AUDIO.test(nombre)) {
-      descartados.push({ nombre, motivo: "no es del historial de audio" });
-    } else if (incluidos.has(nombre)) {
-      descartados.push({ nombre, motivo: "duplicado" });
+  for (const candidato of candidatos) {
+    if (!PATRON_AUDIO.test(candidato.nombre)) {
+      descartados.push({ nombre: candidato.nombre, motivo: "no es del historial de audio" });
+    } else if (incluidos.has(candidato.nombre)) {
+      descartados.push({ nombre: candidato.nombre, motivo: "duplicado" });
     } else {
-      incluidos.set(nombre, contenido);
+      incluidos.set(candidato.nombre, candidato);
     }
   }
+  return { incluidos, descartados };
+};
+
+export const prepararHistorial = async (archivos: File[]): Promise<HistorialPreparado> => {
+  const { incluidos, descartados } = clasificar(await candidatosDe(archivos));
 
   if (incluidos.size === 0) {
     throw new ErrorHistorial(
@@ -77,12 +79,12 @@ export const prepararHistorial = async (archivos: File[]): Promise<HistorialPrep
   }
 
   const nuevo = new JSZip();
-  for (const [nombre, contenido] of incluidos) nuevo.file(nombre, contenido);
+  for (const [nombre, candidato] of incluidos) nuevo.file(nombre, await candidato.leer());
   const zip = await nuevo.generateAsync({ type: "blob", compression: "DEFLATE" });
   return { zip, incluidos: [...incluidos.keys()], descartados, bytes: zip.size };
 };
 
 export const normalizarPersona = (nombre: string): string | null => {
-  const normalizado = nombre.trim().toLowerCase().replace(/\s+/g, "_");
+  const normalizado = nombre.trim().toLowerCase().replace(/ /g, "_");
   return PATRON_PERSONA.test(normalizado) ? normalizado : null;
 };
