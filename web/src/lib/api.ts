@@ -97,8 +97,11 @@ export const subirHistorial = (persona: string, consentimiento: boolean, zip: Bl
   return pedir("/historiales", esRespuestaSubida, { method: "POST", body: formulario });
 };
 
-export const borrarHistorial = async (persona: string): Promise<void> => {
-  await llamar(`/historiales/${encodeURIComponent(persona)}`, { method: "DELETE" });
+// Devuelve el reentreno lanzado, o null si no quedaba nadie y la API retiró el modelo.
+export const borrarHistorial = async (persona: string): Promise<EstadoPreparacion | null> => {
+  const { cuerpo } = await llamar(`/historiales/${encodeURIComponent(persona)}`, { method: "DELETE" });
+  if (esObjeto(cuerpo) && esEstadoPreparacion(cuerpo.preparacion)) return cuerpo.preparacion;
+  return null;
 };
 
 export const pedirPlaylist = (peticion: PeticionPlaylist): Promise<Playlist> => {

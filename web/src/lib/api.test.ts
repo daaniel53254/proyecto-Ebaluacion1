@@ -111,11 +111,18 @@ describe("cliente de la API", () => {
   it("borrarHistorial usa DELETE con el nombre codificado", async () => {
     const fetchFalso = mockFetch(202, { borrado: "ana", preparacion: PREPARACION_EN_CURSO });
 
-    await borrarHistorial("ana");
+    const preparacion = await borrarHistorial("ana");
 
     const { url, opciones } = llamadaDe(fetchFalso);
     expect(url).toBe("http://127.0.0.1:8000/historiales/ana");
     expect(opciones?.method).toBe("DELETE");
+    expect(preparacion?.estado).toBe("en_curso");
+  });
+
+  it("borrarHistorial devuelve null si ya no queda nadie y el modelo se retira", async () => {
+    mockFetch(202, { borrado: "ana", preparacion: "no quedan historiales: el modelo se ha retirado" });
+
+    expect(await borrarHistorial("ana")).toBeNull();
   });
 
   it("lanza ErrorApi si la respuesta no tiene la forma esperada", async () => {
