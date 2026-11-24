@@ -10,6 +10,9 @@ set PY=%CD%\.venv\Scripts\python.exe
 if not exist "%PY%" set PY=%USERPROFILE%\anaconda3\python.exe
 if not exist "%PY%" set PY=python
 
+REM Dependencias antes de preparar los datos: sin ellas la preparacion falla y se borraria data\demo.
+"%PY%" -m pip install -q -r api\requirements.txt || echo AVISO: no se pudieron instalar las dependencias de la API ^(sin internet?^).
+
 if /i "%~1"=="reiniciar" (
     echo Borrando data\demo...
     if exist data\demo rmdir /s /q data\demo
@@ -24,8 +27,6 @@ if not exist data\demo\modelo\modelo.joblib (
     echo Preparando el modelo de la demo...
     "%PY%" -m api.preparar_datos --historial data\demo\raw --salida data\demo\modelo || goto :error
 )
-
-"%PY%" -m pip install -q -r api\requirements.txt
 
 set API_HISTORIAL=%CD%\data\demo\raw
 set API_DATOS=%CD%\data\demo\modelo
