@@ -92,8 +92,8 @@ class CancionPlaylist(BaseModel):
     cancion: str
     artista: str
     duracion_s: Optional[int]
-    gusto_grupo: float = Field(..., description="media de los percentiles de los miembros")
-    desempate: float = Field(..., description="mínimo de los percentiles")
+    gusto_grupo: float = Field(..., description="mínimo de los percentiles de los miembros")
+    desempate: float = Field(..., description="media de los percentiles")
     conocida_por_todos: bool = Field(..., description="todos los miembros tienen gusto real (5 o más escuchas), sin predicción")
     miembros: dict[str, GustoMiembro]
 

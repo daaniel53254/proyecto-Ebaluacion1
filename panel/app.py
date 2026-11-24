@@ -524,7 +524,7 @@ with tab_api:
 
     st.markdown("### Vuestra playlist para el viaje")
     st.caption("Lo que devolvería la API (`POST /objetivo2/playlist`) con el modelo de producción. Cada canción "
-               "vale la **media** de lo que le gusta a cada miembro del grupo.")
+               "vale lo que le gusta **al que menos le gusta** del grupo, para que nadie tenga que saltarla.")
 
     with st.container(border=True):
         c = st.columns([1, 1, 1.2, 1.6])
@@ -584,7 +584,7 @@ with tab_api:
                for p in en_api},
             "gusto_grupo": st.column_config.ProgressColumn(
                 "Grupo", min_value=0, max_value=1, format="%.2f", width="small", color=T.TINTA,
-                help="La media de los percentiles de los miembros."),
+                help="El mínimo de los percentiles: lo que le gusta al que menos le gusta."),
             "spotify": st.column_config.LinkColumn("", display_text="escuchar", width="small"),
         },
     )
@@ -622,7 +622,7 @@ with tab_api:
             "GB absoluto (el modelo de producción del notebook 05) entrenado con los últimos 18 meses de todos los "
             "historiales. Gusto de cada miembro: su tasa real de no salto si tiene 5 o más escuchas de la canción "
             "en ese contexto y, si no, la predicción del modelo; se pasa a percentil dentro de la persona. "
-            "Gusto del grupo = la media; los empates se deshacen con el mínimo. Con la franja «Sin importar» "
+            "Gusto del grupo = el mínimo; los empates se deshacen con la media. Con la franja «Sin importar» "
             "se suman las escuchas de todos los contextos, la predicción es la media de los 12 contextos y van "
             "primero las canciones con gusto real de todos los miembros."
         )

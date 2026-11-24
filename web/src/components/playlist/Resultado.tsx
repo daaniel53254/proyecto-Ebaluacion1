@@ -54,7 +54,7 @@ const Leyenda: FC<LeyendaProps> = ({ personas, colorDe }) => {
       </li>
       <li className="flex items-center gap-2">
         <span aria-hidden className={MUESTRA} style={estiloRelleno("grupo", "var(--npd-blanco)")} />
-        grupo (la media)
+        grupo (el mínimo)
       </li>
     </ul>
   );
@@ -85,7 +85,7 @@ export const Resultado: FC<ResultadoProps> = ({ playlist, personasModelo }) => {
       </div>
       <Cifras cifras={cifrasDe(playlist)} />
       <p className="max-w-2xl text-lg text-tinta-2">
-        Cada canción vale <span className="text-acento">la media de lo que le gusta a cada uno</span>. Las barras son
+        Cada canción vale lo que le gusta <span className="text-acento">al que menos le gusta</span>. Las barras son
         el percentil de cada uno: 100 es de sus favoritas.
       </p>
       <div className="flex flex-col gap-4">

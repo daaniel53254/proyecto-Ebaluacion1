@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     template: "%s · NPD Entertainment",
   },
   description:
-    "Subid vuestros historiales de Spotify y sacad una playlist que guste a todo el grupo: cada canción vale la media de lo que le gusta a cada uno.",
+    "Subid vuestros historiales de Spotify y sacad una playlist que guste a todo el grupo: cada canción vale lo que le gusta al que menos le gusta.",
   icons: { icon: "/npd_logo.png" },
 };
 

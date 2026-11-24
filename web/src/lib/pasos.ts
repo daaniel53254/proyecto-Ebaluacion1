@@ -26,6 +26,6 @@ export const PASOS = [
     ruta: "/playlist",
     titulo: "Vuestra playlist",
     descripcion:
-      "Elegid quién viaja y cuánto dura el trayecto. Cada canción vale la media de lo que le gusta a cada uno.",
+      "Elegid quién viaja y cuánto dura el trayecto. Cada canción vale lo que le gusta al que menos le gusta.",
   },
 ] as const satisfies readonly Paso[];

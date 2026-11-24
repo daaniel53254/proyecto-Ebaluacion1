@@ -65,7 +65,7 @@ app = FastAPI(
         "contexto (franja de 4 horas × tipo de día). Modelo: `playlist_tasa_no_salto@produccion` del registro de MLflow.\n"
         "- **Objetivo 2** · `POST /objetivo2/playlist`: playlist para el grupo en un contexto. Gusto de cada miembro = su "
         "tasa real si tiene 5 o más escuchas en ese contexto, si no la prevista; se pasa a percentil, el gusto del grupo es "
-        "la media de los percentiles y los empates se deshacen con el mínimo.\n\n"
+        "el mínimo de los percentiles y los empates se deshacen con la media.\n\n"
         "Los errores devuelven siempre `{\"error\": ..., \"detalle\": ...}`."),
     lifespan=ciclo_de_vida,
     openapi_tags=[{"name": "historiales"}, {"name": "información"}, {"name": "objetivo 1"}, {"name": "objetivo 2"}],
@@ -213,6 +213,6 @@ def prediccion(peticion: PeticionPrediccion):
 
 @app.post("/objetivo2/playlist", tags=["objetivo 2"], response_model=RespuestaPlaylist, responses=RESPUESTAS_ERROR)
 def playlist(peticion: PeticionPlaylist):
-    """Playlist para el grupo en un contexto, ordenada por el gusto del grupo (media de percentiles)."""
+    """Playlist para el grupo en un contexto, ordenada por el gusto del grupo (mínimo de percentiles)."""
     return servicio().playlist(peticion.personas, peticion.franja, peticion.tipo_dia, peticion.n,
                                peticion.duracion_min, peticion.excluir_artistas)

@@ -27,7 +27,7 @@ const PLAYLIST_VACIA = {
   franja: null,
   franja_horas: "sin importar",
   tipo_dia: "sin importar",
-  regla: "cada canción vale la media de lo que le gusta a cada uno",
+  regla: "cada canción vale lo que le gusta al que menos le gusta",
   n_canciones: 0,
   duracion_total_min: 0,
   canciones: [],

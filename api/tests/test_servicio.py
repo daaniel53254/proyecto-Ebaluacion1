@@ -39,14 +39,14 @@ def test_persona_desconocida(servicio):
     assert e.value.codigo == 404 and "pepe" in e.value.mensaje
 
 
-def test_playlist_regla_media_y_minimo(servicio):
+def test_playlist_regla_minimo_y_media(servicio):
     r = servicio.playlist(["ana", "beñat"], 4, "laborable", n=15)
     c = r["canciones"]
     assert r["n_canciones"] == 15 and [x["posicion"] for x in c] == list(range(1, 16))
     for x in c:
         p = [m["percentil"] for m in x["miembros"].values()]
-        assert x["gusto_grupo"] == pytest.approx(sum(p) / len(p), abs=1e-3)
-        assert x["desempate"] == pytest.approx(min(p), abs=1e-3)
+        assert x["gusto_grupo"] == pytest.approx(min(p), abs=1e-3)
+        assert x["desempate"] == pytest.approx(sum(p) / len(p), abs=1e-3)
     claves = [(x["gusto_grupo"], x["desempate"]) for x in c]
     assert claves == sorted(claves, reverse=True)
 
