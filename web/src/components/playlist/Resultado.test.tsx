@@ -84,6 +84,12 @@ describe("Resultado", () => {
     expect(within(fila).getByText("ana: 80, real")).toBeInTheDocument();
   });
 
+  it("la barra del grupo enseña la media de los percentiles, no el mínimo", () => {
+    pintar();
+    const fila = screen.getByRole("listitem", { name: /canción a/i });
+    expect(within(fila).getByText("grupo (media): 85")).toBeInTheDocument();
+  });
+
   it("«Copiar enlaces» copia un enlace por línea y explica cómo pegarlos", async () => {
     const usuario = userEvent.setup();
     const escribir = vi.spyOn(navigator.clipboard, "writeText");

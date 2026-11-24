@@ -3,6 +3,7 @@ import type { FC } from "react";
 import { Barra, type Relleno } from "@/components/playlist/BarraGusto";
 import { cn } from "@/lib/cn";
 import { duracionCancion, enlaceCancion, percentilVisible } from "@/lib/formato";
+import { percentilMedioDelGrupo } from "@/lib/resumen";
 import type { CancionPlaylist, GustoMiembro } from "@/lib/tipos";
 
 type TablaCancionesProps = {
@@ -49,6 +50,7 @@ type GustosProps = {
 const COLOR_GRUPO = "var(--npd-blanco)";
 
 const Gustos: FC<GustosProps> = ({ cancion, personas, colorDe }) => {
+  const mediaGrupo = percentilMedioDelGrupo(cancion, personas);
   return (
     <ul aria-label="Gusto de cada uno (percentil)" className="flex flex-col gap-1.5">
       {personas.map((persona) => {
@@ -68,10 +70,10 @@ const Gustos: FC<GustosProps> = ({ cancion, personas, colorDe }) => {
       })}
       <FilaGusto
         nombre="grupo"
-        percentil={cancion.gusto_grupo}
+        percentil={mediaGrupo}
         relleno="grupo"
         color={COLOR_GRUPO}
-        textoLector={`grupo: ${percentilVisible(cancion.gusto_grupo)}`}
+        textoLector={`grupo (media): ${percentilVisible(mediaGrupo)}`}
       />
     </ul>
   );
