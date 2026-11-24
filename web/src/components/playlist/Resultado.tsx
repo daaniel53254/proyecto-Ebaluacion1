@@ -3,12 +3,14 @@
 import type { FC } from "react";
 
 import { estiloRelleno } from "@/components/playlist/BarraGusto";
+import { BotonSpotify } from "@/components/playlist/BotonSpotify";
 import { Cifras } from "@/components/playlist/Cifras";
 import { Exportar } from "@/components/playlist/Exportar";
 import { GustoPorPersona } from "@/components/playlist/GustoPorPersona";
 import { TablaCanciones } from "@/components/playlist/TablaCanciones";
 import { tarjeta } from "@/components/ui/estilos";
 import { cifrasDe, colorEnElModelo, gustoMedioPorPersona } from "@/lib/resumen";
+import { CLIENT_ID } from "@/lib/spotify";
 import type { Playlist } from "@/lib/tipos";
 
 type ResultadoProps = {
@@ -92,7 +94,10 @@ export const Resultado: FC<ResultadoProps> = ({ playlist, personasModelo }) => {
       </div>
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         <GustoPorPersona medias={gustoMedioPorPersona(playlist)} colorDe={colorDe} />
-        <Exportar playlist={playlist} />
+        <Exportar
+          playlist={playlist}
+          accionExtra={CLIENT_ID === undefined ? null : <BotonSpotify playlist={playlist} />}
+        />
       </div>
     </section>
   );

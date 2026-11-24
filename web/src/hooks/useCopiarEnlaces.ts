@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 
-import { textoEnlaces } from "@/lib/formato";
-import type { CancionPlaylist } from "@/lib/tipos";
+import { textoEnlacesDeIds } from "@/lib/formato";
 
 export type EstadoCopia = { tipo: "sin_copiar" } | { tipo: "copiados" } | { tipo: "a_mano"; texto: string };
 
@@ -35,11 +34,11 @@ const copiarAlPortapapeles = async (texto: string): Promise<boolean> => {
   }
 };
 
-export const useCopiarEnlaces = (canciones: CancionPlaylist[]) => {
+export const useCopiarEnlaces = (trackIds: string[]) => {
   const [estado, setEstado] = useState<EstadoCopia>({ tipo: "sin_copiar" });
 
   const copiar = async () => {
-    const texto = textoEnlaces(canciones);
+    const texto = textoEnlacesDeIds(trackIds);
     const copiado = await copiarAlPortapapeles(texto);
     setEstado(copiado ? { tipo: "copiados" } : { tipo: "a_mano", texto });
   };

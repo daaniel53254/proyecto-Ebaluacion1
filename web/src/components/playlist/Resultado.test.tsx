@@ -2,6 +2,11 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+// Sin Client ID de Spotify (como ahora, mientras no se dé de alta la app).
+vi.hoisted(() => {
+  delete process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
+});
+
 import { Resultado } from "@/components/playlist/Resultado";
 import type { CancionPlaylist, Playlist } from "@/lib/tipos";
 
@@ -109,5 +114,11 @@ describe("Resultado", () => {
 
     const caja = await screen.findByLabelText("Enlaces de la playlist");
     expect(caja).toHaveValue(PLAYLIST.canciones.map((c) => `https://open.spotify.com/track/${c.track_id}`).join("\n"));
+  });
+
+  it("sin Client ID no ofrece «Crear en mi Spotify», solo «Copiar enlaces»", () => {
+    pintar();
+    expect(screen.queryByRole("button", { name: "Crear en mi Spotify" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copiar enlaces" })).toBeInTheDocument();
   });
 });

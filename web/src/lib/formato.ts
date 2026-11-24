@@ -7,8 +7,12 @@ export const enlaceCancion = (id: string): string => {
   return `https://open.spotify.com/track/${id}`;
 };
 
+export const textoEnlacesDeIds = (trackIds: string[]): string => {
+  return trackIds.map(enlaceCancion).join("\n");
+};
+
 export const textoEnlaces = (canciones: CancionPlaylist[]): string => {
-  return canciones.map((c) => enlaceCancion(c.track_id)).join("\n");
+  return textoEnlacesDeIds(canciones.map((c) => c.track_id));
 };
 
 export const duracionCancion = (segundos: number | null): string => {
