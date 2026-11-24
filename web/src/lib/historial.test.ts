@@ -6,7 +6,7 @@ import { ErrorHistorial, normalizarPersona, prepararHistorial } from "@/lib/hist
 const zipCon = async (contenidos: Record<string, string>, nombre = "mis_datos.zip") => {
   const zip = new JSZip();
   for (const [ruta, texto] of Object.entries(contenidos)) zip.file(ruta, texto);
-  const bytes = await zip.generateAsync({ type: "uint8array" });
+  const bytes = await zip.generateAsync({ type: "arraybuffer" });
   return new File([bytes], nombre, { type: "application/zip" });
 };
 

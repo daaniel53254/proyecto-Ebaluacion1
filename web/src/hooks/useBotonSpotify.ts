@@ -8,6 +8,7 @@ import {
   hayAlmacenamiento,
   iniciarExportacion,
   nombrePlaylist,
+  origenValido,
 } from "@/lib/spotify";
 import type { Playlist } from "@/lib/tipos";
 
@@ -15,6 +16,7 @@ export type EstadoBotonSpotify =
   | { tipo: "listo" }
   | { tipo: "redirigiendo" }
   | { tipo: "sin_almacenamiento" }
+  | { tipo: "otro_origen" }
   | { tipo: "fallo"; mensaje: string };
 
 const MENSAJE_FALLO = "No se pudo abrir el login de Spotify. Usa «Copiar enlaces».";
@@ -24,6 +26,10 @@ export const useBotonSpotify = (playlist: Playlist) => {
 
   // Se comprueba al montar (no al renderizar en el servidor, donde no hay sessionStorage).
   useEffect(() => {
+    if (!origenValido(window.location.origin)) {
+      setEstado({ tipo: "otro_origen" });
+      return;
+    }
     if (!hayAlmacenamiento()) setEstado({ tipo: "sin_almacenamiento" });
   }, []);
 

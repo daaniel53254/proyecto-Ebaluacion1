@@ -32,17 +32,22 @@ const MENSAJE_SESION = "Spotify no aceptó la sesión. Vuelve a la playlist e in
 const MENSAJE_DEMASIADAS = "Spotify está recibiendo demasiadas peticiones. Espera un poco y vuelve a intentarlo.";
 const MENSAJE_LOGIN = "Spotify no aceptó el login. Vuelve a la playlist e inténtalo otra vez.";
 const MENSAJE_RARA = "Spotify devolvió una respuesta inesperada.";
+const MENSAJE_SIN_CANCIONES =
+  "Spotify creó la playlist, pero no dejó añadir las canciones. Ábrela y bórrala, o usa «Copiar enlaces».";
 const MENSAJE_SIN_CLIENT_ID = "Falta el Client ID de la app de Spotify.";
 const MENSAJE_SIN_ALMACEN =
   "Este navegador no deja guardar datos de la pestaña (¿ventana privada?), así que no se puede crear en Spotify. Usa «Copiar enlaces».";
 
 export class ErrorSpotify extends Error {
   readonly codigo: number;
+  // Solo si la playlist llegó a crearse en la cuenta pero algo falló después.
+  readonly urlPlaylistCreada: string | undefined;
 
-  constructor(mensaje: string, codigo: number) {
+  constructor(mensaje: string, codigo: number, urlPlaylistCreada?: string) {
     super(mensaje);
     this.name = "ErrorSpotify";
     this.codigo = codigo;
+    this.urlPlaylistCreada = urlPlaylistCreada;
   }
 }
 
@@ -152,6 +157,11 @@ export const borrarPendiente = (): void => {
 };
 
 // Se prueba a escribir y borrar: en algunas ventanas privadas sessionStorage existe pero lanza al usarlo.
+// El estado pendiente vive en sessionStorage, que es por origen: si la web no está en el de la dirección de vuelta, no vale.
+export const origenValido = (origenActual: string): boolean => {
+  return origenActual === new URL(REDIRECT_URI).origin;
+};
+
 export const hayAlmacenamiento = (): boolean => {
   const prueba = `${CLAVE_PENDIENTE}_prueba`;
   try {
@@ -247,16 +257,22 @@ export const crearPlaylist = async (token: string, datos: DatosPlaylist): Promis
   if (creada === null) throw new ErrorSpotify(MENSAJE_RARA, SIN_CONEXION);
 
   const urlCanciones = `${URL_API}/playlists/${encodeURIComponent(creada.id)}/items`;
-  for (const lote of enLotes(datos.trackIds, LOTE_CANCIONES)) {
-    const uris = lote.map((id) => `spotify:track:${id}`);
-    await llamar(urlCanciones, peticionJson(token, { uris }), "Spotify creó la playlist pero no dejó añadir las canciones.");
+  try {
+    for (const lote of enLotes(datos.trackIds, LOTE_CANCIONES)) {
+      const uris = lote.map((id) => `spotify:track:${id}`);
+      await llamar(urlCanciones, peticionJson(token, { uris }), MENSAJE_SIN_CANCIONES);
+    }
+  } catch (fallo: unknown) {
+    // La playlist ya existe en la cuenta: el mensaje tiene que decirlo, sea cual sea el código.
+    throw new ErrorSpotify(MENSAJE_SIN_CANCIONES, fallo instanceof ErrorSpotify ? fallo.codigo : SIN_CONEXION, creada.url);
   }
   return creada;
 };
 
 // ---------- La vuelta del login ----------
 
-const MENSAJE_LOGIN_RECHAZADO = "Spotify no completó el login. Vuelve a la playlist e inténtalo otra vez.";
+const MENSAJE_LOGIN_RECHAZADO =
+  "Spotify no completó el login. Si tu cuenta no está en la lista de la app, pide a Daniel que la añada o usa «Copiar enlaces».";
 
 export const terminarExportacion = async ({
   parametros,

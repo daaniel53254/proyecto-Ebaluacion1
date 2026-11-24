@@ -9,6 +9,8 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // Mismo origen que la dirección de vuelta de Spotify.
+    environmentOptions: { jsdom: { url: "http://127.0.0.1:3000" } },
     setupFiles: ["./vitest.setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     restoreMocks: true,

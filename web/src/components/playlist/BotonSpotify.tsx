@@ -13,6 +13,8 @@ type BotonSpotifyProps = {
 const SIN_ALMACENAMIENTO =
   "«Crear en mi Spotify» no funciona en este navegador (¿ventana privada?): no deja guardar datos de la pestaña. Usa «Copiar enlaces».";
 
+const OTRO_ORIGEN = "Abre la web en http://127.0.0.1:3000 para crear en Spotify.";
+
 const assertNever = (valor: never): never => {
   throw new Error(`Estado no contemplado: ${JSON.stringify(valor)}`);
 };
@@ -24,6 +26,8 @@ const avisoDe = (estado: EstadoBotonSpotify): string | null => {
       return null;
     case "sin_almacenamiento":
       return SIN_ALMACENAMIENTO;
+    case "otro_origen":
+      return OTRO_ORIGEN;
     case "fallo":
       return estado.mensaje;
     default:
@@ -35,7 +39,7 @@ const avisoDe = (estado: EstadoBotonSpotify): string | null => {
 export const BotonSpotify: FC<BotonSpotifyProps> = ({ playlist }) => {
   const { estado, crear } = useBotonSpotify(playlist);
   const aviso = avisoDe(estado);
-  const desactivado = estado.tipo === "redirigiendo" || estado.tipo === "sin_almacenamiento";
+  const desactivado = estado.tipo === "redirigiendo" || estado.tipo === "sin_almacenamiento" || estado.tipo === "otro_origen";
   return (
     <>
       <button

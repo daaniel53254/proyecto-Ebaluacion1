@@ -61,4 +61,12 @@ describe("BotonSpotify", () => {
     expect(screen.getByRole("button", { name: "Crear en mi Spotify" })).toBeDisabled();
     expect(sessionStorage.getItem(CLAVE_PENDIENTE)).toBeNull();
   });
+
+  it("si la web no está en 127.0.0.1:3000, se desactiva, lo explica y no guarda nada", async () => {
+    vi.stubGlobal("location", { ...window.location, origin: "http://localhost:3000" });
+    render(<BotonSpotify playlist={PLAYLIST} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Abre la web en http://127.0.0.1:3000 para crear en Spotify");
+    expect(screen.getByRole("button", { name: "Crear en mi Spotify" })).toBeDisabled();
+    expect(sessionStorage.getItem(CLAVE_PENDIENTE)).toBeNull();
+  });
 });

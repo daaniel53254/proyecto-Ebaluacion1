@@ -15,6 +15,7 @@ import {
   guardarPendiente,
   leerPendiente,
   nombrePlaylist,
+  origenValido,
   type Pendiente,
   PERMISOS,
   pedirToken,
@@ -25,6 +26,9 @@ import {
 
 const MENSAJE_403 =
   "Tu cuenta de Spotify no está en la lista de la app. Pide a Daniel que la añada o usa «Copiar enlaces».";
+
+const MENSAJE_SIN_CANCIONES =
+  "Spotify creó la playlist, pero no dejó añadir las canciones. Ábrela y bórrala, o usa «Copiar enlaces».";
 
 const PENDIENTE: Pendiente = {
   nombre: "Viaje · ander, daniel · 24/11/2026",
@@ -146,6 +150,20 @@ describe("crearPlaylist", () => {
     await expect(promesa).rejects.toMatchObject({ codigo: 403, message: MENSAJE_403 });
   });
 
+  it("si no deja añadir las canciones (403), dice que la playlist sí se creó y da su enlace", async () => {
+    const simulado = fetchSimulado((url) => {
+      return url.endsWith("/me/playlists") ? respuesta(201, PLAYLIST_CREADA) : respuesta(403, {});
+    });
+    vi.stubGlobal("fetch", simulado);
+    const promesa = crearPlaylist("tok", { nombre: "Viaje", descripcion: "", trackIds: ["a"] });
+    await expect(promesa).rejects.toMatchObject({
+      codigo: 403,
+      message: MENSAJE_SIN_CANCIONES,
+      urlPlaylistCreada: "https://open.spotify.com/playlist/p1",
+    });
+    expect(simulado).toHaveBeenCalledTimes(2);
+  });
+
   it("una respuesta sin enlace https no se acepta", async () => {
     const rara = { id: "p1", external_urls: { spotify: "javascript:alert(1)" } };
     vi.stubGlobal("fetch", vi.fn(async () => respuesta(201, rara)));
@@ -159,6 +177,14 @@ describe("crearPlaylist", () => {
     await expect(crearPlaylist("tok", { nombre: "V", descripcion: "", trackIds: [] })).rejects.toMatchObject({
       codigo: 0,
     });
+  });
+});
+
+describe("origenValido", () => {
+  it("solo vale el origen de la dirección de vuelta", () => {
+    expect(origenValido("http://127.0.0.1:3000")).toBe(true);
+    expect(origenValido("http://localhost:3000")).toBe(false);
+    expect(origenValido("http://127.0.0.1:3001")).toBe(false);
   });
 });
 
@@ -206,6 +232,16 @@ describe("terminarExportacion (vuelta del login)", () => {
     const resultado = await terminarExportacion({ parametros: parametros("error=access_denied"), pendiente: PENDIENTE });
     expect(resultado).toEqual({ tipo: "cancelado" });
     expect(simulado).not.toHaveBeenCalled();
+  });
+
+  it("si Spotify devuelve otro error, sugiere la lista de la app y «Copiar enlaces»", async () => {
+    const resultado = await terminarExportacion({ parametros: parametros("error=server_error"), pendiente: PENDIENTE });
+    expect(resultado).toEqual({
+      tipo: "fallo",
+      mensaje:
+        "Spotify no completó el login. Si tu cuenta no está en la lista de la app, pide a Daniel que la añada o usa «Copiar enlaces».",
+      trackIds: ["t1", "t2"],
+    });
   });
 
   it("sin pendiente no hay playlist que exportar", async () => {

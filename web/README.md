@@ -23,9 +23,10 @@ arrancar_web.bat reiniciar
 
 **Carpeta de demo.** La API trabaja sobre `data/demo`, que empieza con los historiales de `daniel` y `ander` copiados de `data/raw` y un modelo preparado en `data/demo/modelo`. No se toca `data/raw` ni `api/datos`: lo que se sube o se borra desde la web solo afecta a `data/demo`.
 
-**A mano**, en dos terminales y desde la raíz:
+**A mano**, en dos terminales y desde la raíz. Antes hay que preparar `data/demo` (si no, la API arranca sin modelo): copia `data\raw\daniel` y `data\raw\ander` a `data\demo\raw` y entrena el modelo.
 
 ```bat
+.venv\Scripts\python.exe -m api.preparar_datos --historial data\demo\raw --salida data\demo\modelo
 set API_HISTORIAL=%CD%\data\demo\raw
 set API_DATOS=%CD%\data\demo\modelo
 .venv\Scripts\python.exe -m uvicorn api.main:app --host 127.0.0.1 --port 8000
@@ -33,6 +34,8 @@ set API_DATOS=%CD%\data\demo\modelo
 npm --prefix web install
 npm --prefix web run dev
 ```
+
+**Primera vez, con internet.** `layout.tsx` usa `next/font/google` y descarga las fuentes Montserrat y Onest la primera vez que se arranca la web. Arráncala una vez con conexión antes de la clase; después funcionan sin red.
 
 Abre siempre la web como **`http://127.0.0.1:3000`**, no como `localhost`: lo que se guarda en el navegador es por origen y la dirección de vuelta de Spotify es `127.0.0.1`.
 
@@ -43,7 +46,7 @@ Web (copiar `web/.env.example` a `web/.env.local`):
 | Variable | Valor por defecto | Para qué sirve |
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | `http://127.0.0.1:8000` | Dirección de la API |
-| `NEXT_PUBLIC_SPOTIFY_CLIENT_ID` | vacío | Client ID de la app de Spotify; sin él, el botón de crear la playlist en Spotify no funciona |
+| `NEXT_PUBLIC_SPOTIFY_CLIENT_ID` | vacío | Client ID de la app de Spotify; sin él, el botón «Crear en mi Spotify» no aparece (queda «Copiar enlaces») |
 
 API:
 

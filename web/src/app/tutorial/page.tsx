@@ -30,13 +30,13 @@ const Tutorial = () => {
       <section aria-labelledby="titulo-tutorial">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pt-12 pb-12 sm:px-6 sm:pt-16">
           <div className="flex animate-aparecer flex-col items-start gap-5 lg:max-w-3xl">
-            <Etiqueta>Paso 1 · Pide tu historial</Etiqueta>
+            <Etiqueta>Tutorial</Etiqueta>
             <h1 id="titulo-tutorial" className="font-display text-titular font-bold tracking-titular">
               Pide tu historial <span className="text-acento">hoy mismo</span>
             </h1>
             <p className="max-w-xl text-lg leading-relaxed text-tinta-2">
-              Spotify guarda todo lo que escuchas y te lo da si se lo pides. Son cinco pasos y unos dos minutos; lo
-              que tarda es lo que viene después.
+              Spotify guarda todo lo que escuchas y te lo da si se lo pides. Son cinco pasos; lo que tarda es lo
+              que viene después.
             </p>
           </div>
           <div
