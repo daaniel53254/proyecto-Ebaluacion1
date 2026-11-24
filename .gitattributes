@@ -2,3 +2,7 @@
 *.sh  text eol=lf
 *.env text eol=lf
 *.yml text eol=lf
+
+# Los .bat/.cmd guardados tal cual (CRLF en el repositorio, sin conversion): cmd.exe falla con goto/etiquetas en ficheros LF.
+*.bat -text
+*.cmd -text

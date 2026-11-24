@@ -15,7 +15,9 @@ if /i "%~1"=="reiniciar" (
     if exist data\demo rmdir /s /q data\demo
 )
 
-if not exist data\demo\raw (
+REM Se decide por el modelo (no por raw): si una preparacion anterior quedo a medias se rehace.
+if not exist data\demo\modelo\modelo.joblib (
+    if exist data\demo rmdir /s /q data\demo
     echo Copiando los historiales a data\demo\raw...
     xcopy /e /i /q data\raw\daniel data\demo\raw\daniel || goto :error
     xcopy /e /i /q data\raw\ander data\demo\raw\ander || goto :error
@@ -35,9 +37,13 @@ if not exist web\package.json (
 )
 if not exist web\node_modules call npm --prefix web install
 start "Web" npm --prefix web run dev
+REM Espera a que Next arranque antes de abrir el navegador.
+timeout /t 5 >nul
 start http://127.0.0.1:3000
 goto :eof
 
 :error
 echo No se pudo preparar la carpeta de demo.
+REM Se borra lo parcial para que la proxima vez se prepare desde cero.
+if exist data\demo rmdir /s /q data\demo
 pause
