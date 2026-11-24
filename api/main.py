@@ -62,7 +62,10 @@ app = FastAPI(
         "contexto (franja de 4 horas × tipo de día). Modelo: `playlist_tasa_no_salto@produccion` del registro de MLflow.\n"
         "- **Objetivo 2** · `POST /objetivo2/playlist`: playlist para el grupo en un contexto. Gusto de cada miembro = su "
         "tasa real si tiene 5 o más escuchas en ese contexto, si no la prevista; se pasa a percentil, el gusto del grupo es "
-        "el mínimo de los percentiles y los empates se deshacen con la media.\n\n"
+        "el mínimo de los percentiles y los empates se deshacen con la media. Con `\"historial\": \"completo\"` las "
+        "candidatas salen de todo el historial (3 o más escuchas del grupo), el gusto mezcla lo real con lo previsto "
+        "((no saltos + 5 × prevista) / (escuchas + 5)) y cada miembro conoce al menos un tercio de la lista; por defecto, "
+        "`\"18_meses\"`. Con `\"ignorar_horario\": true` no se filtra por franja ni tipo de día.\n\n"
         "Los errores devuelven siempre `{\"error\": ..., \"detalle\": ...}`."),
     lifespan=ciclo_de_vida,
     openapi_tags=[{"name": "historiales"}, {"name": "información"}, {"name": "objetivo 1"}, {"name": "objetivo 2"}],
@@ -205,4 +208,4 @@ def prediccion(peticion: PeticionPrediccion):
 def playlist(peticion: PeticionPlaylist):
     """Playlist para el grupo en un contexto, ordenada por el gusto del grupo (mínimo de percentiles)."""
     return servicio().playlist(peticion.personas, peticion.franja, peticion.tipo_dia, peticion.n,
-                               peticion.duracion_min, peticion.excluir_artistas)
+                               peticion.duracion_min, peticion.excluir_artistas, peticion.historial)

@@ -350,13 +350,13 @@ def gustos_desde_api(servicio, candidatas: pd.DataFrame) -> pd.DataFrame:
 
 
 def playlist_api(servicio, personas: list[str], franja: int, tipo_dia: str, n: int | None = None,
-                 minutos: int | None = None, excluir_artistas=()) -> tuple[pd.DataFrame, dict]:
+                 minutos: int | None = None, excluir_artistas=(), historial: str = "18_meses") -> tuple[pd.DataFrame, dict]:
     """Playlist del grupo con el modelo de la API. `personas` van con seudónimo; la tabla vuelve
     con seudónimos y una columna de percentil y de origen por miembro."""
     a_seud = seudonimos(servicio.personas.index)
     nombre = {v: k for k, v in a_seud.items()}
     r = servicio.playlist([nombre[p] for p in personas], franja, tipo_dia, n=n, duracion_min=minutos,
-                          excluir_artistas=list(excluir_artistas))
+                          excluir_artistas=list(excluir_artistas), historial=historial)
     filas = []
     for c in r["canciones"]:
         fila = {k: c[k] for k in ("posicion", "track_id", "cancion", "artista", "duracion_s",
@@ -369,15 +369,16 @@ def playlist_api(servicio, personas: list[str], franja: int, tipo_dia: str, n: i
     return pd.DataFrame(filas), {k: v for k, v in r.items() if k != "canciones"}
 
 
-def mapa_gustos_api(servicio, personas: list[str], franja: int, tipo_dia: str) -> pd.DataFrame:
+def mapa_gustos_api(servicio, personas: list[str], franja: int, tipo_dia: str, historial: str = "18_meses") -> pd.DataFrame:
     """Percentil de cada miembro (con seudónimo) para todas las candidatas del contexto: una fila por
     canción, para dibujar dónde cae la playlist respecto al resto."""
     a_seud = seudonimos(servicio.personas.index)
     nombre = {v: k for k, v in a_seud.items()}
-    g = servicio.gustos([nombre[p] for p in personas], franja, tipo_dia)
+    g = servicio.gustos([nombre[p] for p in personas], franja, tipo_dia, historial)
     t = g.pivot_table(index="track_id", columns="persona", values="percentil", aggfunc="first")
     t.columns = [f"percentil_{a_seud[c]}" for c in t.columns]
-    return t.join(servicio.catalogo[["cancion", "artista"]]).reset_index()
+    catalogo = servicio.catalogo_completo if historial == "completo" else servicio.catalogo
+    return t.join(catalogo[["cancion", "artista"]]).reset_index()
 
 
 if __name__ == "__main__":
