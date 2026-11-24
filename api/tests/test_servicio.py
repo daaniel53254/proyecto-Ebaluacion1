@@ -57,6 +57,28 @@ def test_playlist_por_duracion_y_exclusion(servicio):
     assert all(x["artista"] != "Artista 1" for x in r["canciones"])
 
 
+def test_playlist_sin_horario(servicio):
+    r = servicio.playlist(["ana", "beñat"], None, None, n=30)
+    c = r["canciones"]
+    assert r["franja"] is None and r["tipo_dia"] == "cualquiera" and r["n_canciones"] == 30
+    for x in c:
+        assert x["conocida_por_todos"] == all(m["origen"] == "real" for m in x["miembros"].values())
+    claves = [(x["conocida_por_todos"], x["gusto_grupo"], x["desempate"]) for x in c]
+    assert claves == sorted(claves, reverse=True)                      # primero las que conoce todo el grupo
+
+
+def test_sin_horario_usa_todas_las_escuchas(servicio):
+    g = servicio.gustos(["ana"], None, None)
+    assert len(g) == len(servicio.catalogo)                             # una fila por canción, no por contexto
+    total = servicio.recuentos[servicio.recuentos["persona"] == "ana"].groupby("track_id")["n_escuchas"].sum()
+    assert g.set_index("track_id")["escuchas_contexto"].reindex(total.index).tolist() == total.tolist()
+
+
+def test_horario_a_medias(servicio):
+    with pytest.raises(ErrorEntrada):
+        servicio.playlist(["ana"], 2, None)
+
+
 def test_personas_repetidas(servicio):
     with pytest.raises(ErrorEntrada):
         servicio.playlist(["ana", "ana"], 1, "laborable")

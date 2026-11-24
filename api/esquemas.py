@@ -15,6 +15,9 @@ class Contexto(BaseModel):
 
     @model_validator(mode="after")
     def completar(self):
+        if not self.necesita_contexto():
+            self.franja = self.tipo_dia = self.fecha_hora = None
+            return self
         if self.fecha_hora is not None:
             from api.servicio import contexto_de_fecha
             f, t = contexto_de_fecha(self.fecha_hora)
@@ -23,6 +26,9 @@ class Contexto(BaseModel):
         if self.franja is None or self.tipo_dia is None:
             raise ValueError("indica «franja» y «tipo_dia», o «fecha_hora»")
         return self
+
+    def necesita_contexto(self) -> bool:
+        return True
 
 
 class FilaPrediccion(Contexto):
@@ -64,9 +70,14 @@ class PeticionPlaylist(Contexto):
     model_config = ConfigDict(json_schema_extra={"example": {
         "personas": ["ander", "daniel"], "fecha_hora": "2026-11-27T15:30", "n": 20}})
     personas: list[str] = Field(..., min_length=1, max_length=10, description="miembros del grupo que viajan")
+    ignorar_horario: bool = Field(False, description="true: no filtra por franja ni tipo de día; usa todas las escuchas "
+                                                     "y pone primero las canciones que conoce todo el grupo")
     n: Optional[int] = Field(50, ge=1, le=500, description="número máximo de canciones")
     duracion_min: Optional[float] = Field(None, gt=0, le=1440, description="duración del viaje en minutos (corta la lista al llegar)")
     excluir_artistas: list[str] = Field(default_factory=list, max_length=50)
+
+    def necesita_contexto(self) -> bool:
+        return not self.ignorar_horario
 
 
 class GustoMiembro(BaseModel):
@@ -83,12 +94,13 @@ class CancionPlaylist(BaseModel):
     duracion_s: Optional[int]
     gusto_grupo: float = Field(..., description="mínimo de los percentiles de los miembros")
     desempate: float = Field(..., description="media de los percentiles")
+    conocida_por_todos: bool = Field(..., description="todos los miembros tienen gusto real (5 o más escuchas), sin predicción")
     miembros: dict[str, GustoMiembro]
 
 
 class RespuestaPlaylist(BaseModel):
     personas: list[str]
-    franja: int
+    franja: Optional[int] = Field(..., description="null si se ignora el horario")
     franja_horas: str
     tipo_dia: str
     regla: str

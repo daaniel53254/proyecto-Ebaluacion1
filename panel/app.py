@@ -528,9 +528,15 @@ with tab_api:
 
     with st.container(border=True):
         c = st.columns([1, 1, 1.2, 1.6])
-        franja_a = c[0].selectbox("Franja", list(D.FRANJAS), index=4, format_func=lambda f: f"{D.FRANJAS[f]} h",
-                                  key="api_franja")
-        tipo_a = c[1].selectbox("Día", list(D.TIPOS_DIA), index=1, format_func=D.TIPOS_DIA.get, key="api_tipo")
+        franja_a = c[0].selectbox("Franja", [None, *D.FRANJAS], index=0, key="api_franja",
+                                  format_func=lambda f: "Sin importar" if f is None else f"{D.FRANJAS[f]} h",
+                                  help="«Sin importar» usa todas las escuchas, sin mirar la hora ni el día, y pone "
+                                       "primero las canciones que conoce todo el grupo.")
+        sin_horario = franja_a is None
+        tipo_a = c[1].selectbox("Día", list(D.TIPOS_DIA), index=1, format_func=D.TIPOS_DIA.get, key="api_tipo",
+                                disabled=sin_horario)
+        if sin_horario:
+            tipo_a = None
         modo_a = c[2].segmented_control("Longitud", ["Canciones", "Minutos"], default="Canciones",
                                         key="api_modo") or "Canciones"
         if modo_a == "Canciones":
@@ -554,8 +560,9 @@ with tab_api:
     k[1].metric("Duración", f"{int(minutos_tot // 60)} h {int(round(minutos_tot % 60)):02d} min", border=True)
     k[2].metric("Artistas distintos", lista["artista"].nunique(), border=True)
     k[3].metric("Con gusto real de todos", pct(todos_real), border=True,
-                help="Canciones que todos los miembros han escuchado 5 o más veces en este contexto: "
-                     "su gusto es real, no una predicción del modelo.")
+                help="Canciones que todos los miembros han escuchado 5 o más veces "
+                     + ("en total" if sin_horario else "en este contexto")
+                     + ": su gusto es real, no una predicción del modelo.")
 
     v = lista[["posicion", "cancion", "artista"]].copy()
     v["duracion"] = lista["duracion_s"].map(lambda s: "—" if pd.isna(s) else f"{int(s) // 60}:{int(s) % 60:02d}")
@@ -615,7 +622,9 @@ with tab_api:
             "GB absoluto (el modelo de producción del notebook 05) entrenado con los últimos 18 meses de todos los "
             "historiales. Gusto de cada miembro: su tasa real de no salto si tiene 5 o más escuchas de la canción "
             "en ese contexto y, si no, la predicción del modelo; se pasa a percentil dentro de la persona. "
-            "Gusto del grupo = el mínimo; los empates se deshacen con la media."
+            "Gusto del grupo = el mínimo; los empates se deshacen con la media. Con la franja «Sin importar» "
+            "se suman las escuchas de todos los contextos, la predicción es la media de los 12 contextos y van "
+            "primero las canciones con gusto real de todos los miembros."
         )
         st.caption(f"Entrenado del {inf['periodo']['desde']} al {inf['periodo']['hasta']}; preparado el "
                    f"{inf['preparado'].replace('T', ' a las ')} ({srv.origen_modelo}). Como el periodo incluye el "
