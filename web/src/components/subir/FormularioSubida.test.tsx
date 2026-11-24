@@ -33,7 +33,7 @@ const zipDeSpotify = async () => {
 
 const pintar = (historiales: Historial[] = []) => {
   const alSubir = vi.fn();
-  render(<FormularioSubida historiales={historiales} ocupado={false} alSubir={alSubir} />);
+  render(<FormularioSubida historiales={historiales} alSubir={alSubir} />);
   return { alSubir, usuario: userEvent.setup() };
 };
 
@@ -117,5 +117,16 @@ describe("FormularioSubida", () => {
     await usuario.click(botonSubir());
     expect(await screen.findByRole("alert")).toHaveTextContent("El zip no tiene escuchas válidas");
     expect(alSubir).not.toHaveBeenCalled();
+  });
+
+  it("enseña también el detalle del error de la API", async () => {
+    const detalle = [{ campo: "persona", problema: "Field required" }];
+    vi.mocked(subirHistorial).mockRejectedValueOnce(new ErrorApi("Entrada no válida", 422, detalle));
+    const { usuario } = pintar();
+    await rellenarTodo(usuario);
+    await usuario.click(botonSubir());
+    const aviso = await screen.findByRole("alert");
+    expect(aviso).toHaveTextContent("Entrada no válida");
+    expect(aviso).toHaveTextContent("persona: Field required");
   });
 });

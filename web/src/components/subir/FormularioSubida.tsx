@@ -10,7 +10,6 @@ import type { Historial, RespuestaSubida } from "@/lib/tipos";
 
 type FormularioSubidaProps = {
   historiales: Historial[];
-  ocupado: boolean;
   alSubir: (respuesta: RespuestaSubida) => void;
 };
 
@@ -51,8 +50,8 @@ const AyudaNombre: FC<AyudaNombreProps> = ({ nombre, persona, yaExiste }) => {
   );
 };
 
-export const FormularioSubida: FC<FormularioSubidaProps> = ({ historiales, ocupado, alSubir }) => {
-  const formulario = useFormularioSubida({ historiales, ocupado, alSubir });
+export const FormularioSubida: FC<FormularioSubidaProps> = ({ historiales, alSubir }) => {
+  const formulario = useFormularioSubida({ historiales, alSubir });
   const { nombre, persona, yaExiste, archivos, envio } = formulario;
 
   const alEnviar = (evento: FormEvent<HTMLFormElement>) => {
@@ -100,9 +99,16 @@ export const FormularioSubida: FC<FormularioSubidaProps> = ({ historiales, ocupa
       </label>
 
       {envio.tipo === "error" && (
-        <p role="alert" className="rounded-2xl border border-acento/60 bg-acento-suave/40 p-4 text-sm">
-          {envio.mensaje}
-        </p>
+        <div role="alert" className="flex flex-col gap-2 rounded-2xl border border-acento/60 bg-acento-suave/40 p-4 text-sm">
+          <p>{envio.mensaje}</p>
+          {envio.detalle.length > 0 && (
+            <ul className="flex flex-col gap-1 text-tinta-2">
+              {envio.detalle.map((linea, posicion) => {
+                return <li key={`${posicion}-${linea}`}>{linea}</li>;
+              })}
+            </ul>
+          )}
+        </div>
       )}
 
       <button

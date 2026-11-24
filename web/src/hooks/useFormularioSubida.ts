@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 
 import { ErrorApi, subirHistorial } from "@/lib/api";
+import { lineasDeDetalle } from "@/lib/errores";
 import { ErrorHistorial, type HistorialPreparado, normalizarPersona, prepararHistorial } from "@/lib/historial";
 import type { Historial, RespuestaSubida } from "@/lib/tipos";
 
@@ -12,11 +13,13 @@ export type EstadoArchivos =
   | { tipo: "listo"; preparado: HistorialPreparado }
   | { tipo: "error"; mensaje: string };
 
-export type EstadoEnvio = { tipo: "inactivo" } | { tipo: "enviando" } | { tipo: "error"; mensaje: string };
+export type EstadoEnvio =
+  | { tipo: "inactivo" }
+  | { tipo: "enviando" }
+  | { tipo: "error"; mensaje: string; detalle: string[] };
 
 type Opciones = {
   historiales: Historial[];
-  ocupado: boolean;
   alSubir: (respuesta: RespuestaSubida) => void;
 };
 
@@ -28,12 +31,12 @@ const mensajeDeArchivos = (fallo: unknown): string => {
   return MENSAJE_FICHERO_ILEGIBLE;
 };
 
-const mensajeDeEnvio = (fallo: unknown): string => {
-  if (fallo instanceof ErrorApi) return fallo.message;
-  return MENSAJE_SUBIDA_FALLIDA;
+const envioFallido = (fallo: unknown): EstadoEnvio => {
+  if (fallo instanceof ErrorApi) return { tipo: "error", mensaje: fallo.message, detalle: lineasDeDetalle(fallo.detalle) };
+  return { tipo: "error", mensaje: MENSAJE_SUBIDA_FALLIDA, detalle: [] };
 };
 
-export const useFormularioSubida = ({ historiales, ocupado, alSubir }: Opciones) => {
+export const useFormularioSubida = ({ historiales, alSubir }: Opciones) => {
   const [nombre, setNombre] = useState("");
   const [consentimiento, setConsentimiento] = useState(false);
   const [archivos, setArchivos] = useState<EstadoArchivos>({ tipo: "vacio" });
@@ -43,7 +46,7 @@ export const useFormularioSubida = ({ historiales, ocupado, alSubir }: Opciones)
   const persona = normalizarPersona(nombre);
   const yaExiste = persona !== null && historiales.some((historial) => historial.persona === persona);
   const enviando = envio.tipo === "enviando";
-  const puedeSubir = persona !== null && consentimiento && archivos.tipo === "listo" && !enviando && !ocupado;
+  const puedeSubir = persona !== null && consentimiento && archivos.tipo === "listo" && !enviando;
 
   const elegirArchivos = async (elegidos: File[]) => {
     if (elegidos.length === 0) return;
@@ -68,7 +71,7 @@ export const useFormularioSubida = ({ historiales, ocupado, alSubir }: Opciones)
       setArchivos({ tipo: "vacio" });
       alSubir(respuesta);
     } catch (fallo: unknown) {
-      setEnvio({ tipo: "error", mensaje: mensajeDeEnvio(fallo) });
+      setEnvio(envioFallido(fallo));
     }
   };
 
