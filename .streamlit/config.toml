@@ -1,0 +1,38 @@
+# Tema del panel: identidad de NPD Entertainment (colores sacados de panel/img/npd_logo.png).
+# Streamlit lee este archivo desde la carpeta en la que se lanza, así que hay que arrancar desde la
+# raíz del repositorio:
+#     .venv/Scripts/python -m streamlit run panel/app.py
+# Mismos valores que panel/tema.py y las variables de panel/estilo.css.
+
+[theme]
+base = "dark"
+# Naranja del logo algo más oscuro en los rellenos, para que el texto blanco encima se lea (4,8:1).
+primaryColor = "#c8432a"
+backgroundColor = "#040708"
+secondaryBackgroundColor = "#0d1112"
+textColor = "#f4f4f2"
+linkColor = "#c9cccb"
+borderColor = "#222829"
+showWidgetBorder = true
+dataframeBorderColor = "#222829"
+dataframeHeaderBackgroundColor = "#0d1112"
+dataframeHeaderTextColor = "#8f9594"
+codeBackgroundColor = "#161b1c"
+codeTextColor = "#c9cccb"
+blueColor = "#c9cccb"
+grayColor = "#8f9594"
+font = "Onest:https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500&display=swap"
+headingFont = "Montserrat:https://fonts.googleapis.com/css2?family=Montserrat:wght@300;700&display=swap"
+headingFontWeights = 700
+baseFontSize = 16
+baseRadius = "12px"
+buttonRadius = "full"
+metricValueFontSize = "2.125rem"
+metricValueFontWeight = 300
+chartCategoricalColors = ["#d23f18", "#52ab69", "#3a84ca", "#b98a00", "#993f94"]
+chartSequentialColors = ["#2a1a16", "#432621", "#6f3226", "#9c3d2b", "#c94830", "#e25d43", "#e77a64", "#ed9885", "#f2b5a7", "#f8d3c8"]
+
+[theme.sidebar]
+backgroundColor = "#040708"
+secondaryBackgroundColor = "#0d1112"
+borderColor = "#222829"

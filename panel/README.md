@@ -27,7 +27,9 @@ Después, cada vez:
 .venv/Scripts/python -m streamlit run panel/app.py
 ```
 
-Se abre en <http://localhost:8501>. Antes tienen que estar en `data/dataset/` los tres CSV
+Se abre en <http://localhost:8501>. Hay que lanzarlo desde la raíz del repositorio para que Streamlit lea
+el tema de `.streamlit/config.toml` (colores del logo de NPD Entertainment; los gráficos usan una paleta validada para daltonismo que empieza por su naranja y su verde); los mismos
+colores están en `panel/tema.py` (gráficos) y `panel/estilo.css` (tipografía, pestañas y foco). Antes tienen que estar en `data/dataset/` los tres CSV
 (`spotify_reproducciones.csv`, `gold_objetivo1.csv` y `gold_candidatas.csv`): salen del pipeline o de
 la carpeta compartida de Drive. Si falta alguno, el panel avisa y se para.
 

@@ -15,52 +15,21 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import datos as D  # noqa: E402
+import tema as T  # noqa: E402
 
-st.set_page_config(page_title="Playlist en grupo · Panel v1", page_icon="🎧", layout="wide")
+st.set_page_config(page_title="Playlist en grupo, panel v1", page_icon=str(T.LOGO), layout="wide")
 
-# Animación de «cargando»: Streamlit pone por defecto gente haciendo deporte (arriba a la derecha).
-# Se cambia por un ecualizador de cuatro barras con los colores del panel. Ese contenedor solo existe
-# mientras el script se está ejecutando.
-st.html(
-    """
-    <style>
-    [data-testid="stStatusWidgetRunningIcon"] > * { display: none !important; }
-    [data-testid="stStatusWidgetRunningIcon"] {
-        width: 22px !important; height: 18px !important;
-        background:
-            linear-gradient(#2a78d6, #2a78d6) 0% 100% / 4px 40% no-repeat,
-            linear-gradient(#eb6834, #eb6834) 33% 100% / 4px 80% no-repeat,
-            linear-gradient(#1baf7a, #1baf7a) 66% 100% / 4px 55% no-repeat,
-            linear-gradient(#2a78d6, #2a78d6) 100% 100% / 4px 70% no-repeat;
-        animation: ecualizador 0.9s ease-in-out infinite alternate;
-    }
-    @keyframes ecualizador {
-        0%   { background-size: 4px 30%, 4px 90%, 4px 50%, 4px 70%; }
-        33%  { background-size: 4px 85%, 4px 35%, 4px 95%, 4px 40%; }
-        66%  { background-size: 4px 55%, 4px 70%, 4px 30%, 4px 95%; }
-        100% { background-size: 4px 95%, 4px 45%, 4px 75%, 4px 25%; }
-    }
-    </style>
-    """
-)
+# Estilo con la identidad de NPD Entertainment (Hallmark): tipografías, pestañas, foco visible y la animación
+# de «cargando», que cambia la de Streamlit (gente haciendo deporte) por un ecualizador de cuatro barras con
+# los colores del logo. Los colores de los controles salen de .streamlit/config.toml.
+st.html(T.css())
 
-# Paleta: un color fijo por persona (azul y naranja, validados para daltonismo) y una
-# escala secuencial de un solo tono para las tasas.
-COLORES = ["#2a78d6", "#eb6834", "#1baf7a"]
-SECUENCIAL = "Blues"
-GRIS = "#8a8984"
-
-
-def plantilla(fig, alto: int = 340):
-    fig.update_layout(
-        height=alto, margin=dict(l=10, r=10, t=80, b=10),
-        title=dict(y=0.98, yanchor="top", x=0, xanchor="left"),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, title=None),
-        hoverlabel=dict(font_size=13),
-    )
-    fig.update_xaxes(showgrid=False)
-    fig.update_yaxes(gridcolor="rgba(128,128,128,0.15)")
-    return fig
+# Paleta validada para daltonismo en fondo oscuro, empezando por el naranja y el verde del logo; un color fijo
+# por persona, la referencia en gris y las tasas en una escala secuencial de naranja (ver panel/tema.py).
+COLORES = T.COLORES_PERSONA
+SECUENCIAL = T.SECUENCIAL
+GRIS = T.APAGADO
+plantilla = T.plantilla
 
 
 def pct(x: float) -> str:
@@ -100,8 +69,8 @@ def marca(ruta: Path) -> float:
     return ruta.stat().st_mtime if ruta.exists() else 0.0
 
 
-FUENTE_RIDGE = "Ridge · notebook 03"
-FUENTE_API = "GB absoluto · modelo de la API"
+FUENTE_RIDGE = "Ridge (notebook 03)"
+FUENTE_API = "GB absoluto (modelo de la API)"
 
 
 @st.cache_resource(show_spinner="Cargando el modelo de la API…", max_entries=2)
@@ -144,11 +113,12 @@ color_persona = {p: COLORES[i % len(COLORES)] for i, p in enumerate(personas)}
 
 st.title("Playlist perfecta para viajes en grupo")
 st.caption(
-    "Panel v1 · Entrega 2 · NPD Entertainment · CEBANC. Datos de `data/dataset/` "
+    "Panel v1 de la Entrega 2 (NPD Entertainment, CEBANC). Datos de `data/dataset/` "
     "(silver y gold del pipeline de Hive). Las personas aparecen con su seudónimo."
 )
 
 with st.sidebar:
+    st.image(str(T.LOGO), width=150)
     st.header("Filtros")
     sel_personas = st.multiselect("Personas", personas, default=personas)
     if not sel_personas:
@@ -181,7 +151,7 @@ if falta_dataset is None:
         res = D.resumen_persona(d)
 
         for _, fila in res.iterrows():
-            st.markdown(f"**{fila['persona']}** · {fila['desde']:%d/%m/%Y} – {fila['hasta']:%d/%m/%Y}")
+            st.markdown(f"**{fila['persona']}**, del {fila['desde']:%d/%m/%Y} al {fila['hasta']:%d/%m/%Y}")
             c = st.columns(6)
             c[0].metric("Escuchas", miles(fila["escuchas"]))
             c[1].metric("Horas", miles(fila["horas"]))
@@ -197,8 +167,8 @@ if falta_dataset is None:
                           color_discrete_map=color_persona,
                           labels={"hora": "Hora local", "proporcion": "% de sus escuchas"},
                           title="¿A qué hora escucha cada persona?")
-            fig.update_traces(line_width=2, marker_size=7,
-                              hovertemplate="%{x}:00 · %{y:.1%}<extra>%{fullData.name}</extra>")
+            fig.update_traces(line_width=2, marker_size=8,
+                              hovertemplate="%{x}:00<br>%{y:.1%}<extra>%{fullData.name}</extra>")
             fig.update_yaxes(tickformat=".0%")
             fig.update_xaxes(dtick=2)
             st.plotly_chart(plantilla(fig), width="stretch")
@@ -210,7 +180,7 @@ if falta_dataset is None:
                          category_orders={"dia": list(D.DIAS.values())},
                          labels={"dia": "", "proporcion": "% de sus escuchas"},
                          title="Reparto por día de la semana")
-            fig.update_traces(hovertemplate="%{x} · %{y:.1%}<extra>%{fullData.name}</extra>")
+            fig.update_traces(hovertemplate="%{x}<br>%{y:.1%}<extra>%{fullData.name}</extra>")
             fig.update_yaxes(tickformat=".0%")
             st.plotly_chart(plantilla(fig), width="stretch")
 
@@ -218,22 +188,22 @@ if falta_dataset is None:
         with col3:
             p = D.reparto(d, "plataforma")
             fig = px.bar(p, y="persona", x="proporcion", color="plataforma", orientation="h",
-                         color_discrete_sequence=["#2a78d6", "#eb6834", "#1baf7a", "#eda100", GRIS],
+                         color_discrete_sequence=[*T.RAMPA[:4], GRIS],
                          labels={"persona": "", "proporcion": "% de sus escuchas"},
                          title="Desde dónde escucha")
-            fig.update_traces(marker_line_width=2, marker_line_color="rgba(255,255,255,0.9)",
-                              hovertemplate="%{fullData.name} · %{x:.1%}<extra></extra>")
+            fig.update_traces(marker_line_width=2, marker_line_color=T.FONDO,
+                              hovertemplate="%{fullData.name}<br>%{x:.1%}<extra></extra>")
             fig.update_xaxes(tickformat=".0%")
             st.plotly_chart(plantilla(fig, 260), width="stretch")
         with col4:
             cl = D.reparto(d, "clase")
             fig = px.bar(cl, y="persona", x="proporcion", color="clase", orientation="h",
                          category_orders={"clase": D.CLASES},
-                         color_discrete_sequence=["#2a78d6", "#1baf7a", "#eda100", "#6250d6", "#eb6834"],
+                         color_discrete_sequence=T.RAMPA,
                          labels={"persona": "", "proporcion": "% de sus escuchas"},
                          title="Cómo terminan las canciones")
-            fig.update_traces(marker_line_width=2, marker_line_color="rgba(255,255,255,0.9)",
-                              hovertemplate="%{fullData.name} · %{x:.1%}<extra></extra>")
+            fig.update_traces(marker_line_width=2, marker_line_color=T.FONDO,
+                              hovertemplate="%{fullData.name}<br>%{x:.1%}<extra></extra>")
             fig.update_xaxes(tickformat=".0%")
             st.plotly_chart(plantilla(fig, 260), width="stretch")
 
@@ -286,10 +256,10 @@ if falta_dataset is None:
 
             pr = q["problemas"]
             if not pr.empty:
-                pr["etiqueta"] = pr["n"].astype(str) + " · " + pr["regla"]
+                pr["etiqueta"] = pr["n"].astype(str) + ". " + pr["regla"]
                 pr["texto"] = pr["bronze"].map(miles) + " → " + pr["silver"].map(miles) + " en silver"
                 fig = px.bar(pr, y="etiqueta", x="bronze", orientation="h", text="texto",
-                             custom_data=["silver"], color_discrete_sequence=["#eb6834"],
+                             custom_data=["silver"], color_discrete_sequence=[T.RAMPA[0]],
                              labels={"etiqueta": "", "bronze": "Filas que incumplen la regla en bronze"},
                              title="Filas con cada problema: bronze → silver")
                 fig.update_yaxes(autorange="reversed")
@@ -301,9 +271,9 @@ if falta_dataset is None:
 
                 todo_ok = (pr["silver"] == 0).all()
                 if todo_ok:
-                    st.success("✔ Los 8 problemas del plan de ensuciado quedan a 0 en silver.")
+                    st.success("Los 8 problemas del plan de ensuciado quedan a 0 en silver.")
                 else:
-                    st.error("✖ Algún problema sigue presente en silver: " +
+                    st.error("Algún problema sigue presente en silver: " +
                              ", ".join(pr.loc[pr["silver"] > 0, "etiqueta"]))
 
                 tabla = pr[["etiqueta", "bronze", "silver"]].rename(
@@ -351,7 +321,7 @@ if falta_dataset is None:
                                   "tipo_txt": "Día"},
                           title="Tasa de no salto por franja y tipo de día")
             fig.update_traces(line_width=2, marker_size=8,
-                              hovertemplate="%{x} · %{customdata[1]}<br>Tasa %{y:.1%}"
+                              hovertemplate="%{x}<br>%{customdata[1]}<br>Tasa %{y:.1%}"
                                             "<br>%{customdata[0]:,} escuchas<extra>%{fullData.name}</extra>")
             fig.update_yaxes(tickformat=".0%")
             fig.update_xaxes(type="category")
@@ -364,7 +334,7 @@ if falta_dataset is None:
             fig = px.imshow(tp, text_auto=".0%", color_continuous_scale=SECUENCIAL, zmin=0, zmax=1,
                             aspect="auto", labels={"x": "Franja", "y": "", "color": "Tasa"},
                             title=p)
-            fig.update_traces(hovertemplate="%{y} · %{x}<br>Tasa %{z:.1%}<extra></extra>")
+            fig.update_traces(hovertemplate="%{y}<br>%{x}<br>Tasa %{z:.1%}<extra></extra>")
             fig.update_xaxes(type="category")
             fig.update_layout(coloraxis_colorbar=dict(tickformat=".0%", len=0.8))
             col.plotly_chart(plantilla(fig, 230), width="stretch")
@@ -435,7 +405,7 @@ if falta_dataset is None:
         ev_s = D.evaluar(sistema, cand, franja, tipo, sel_personas).set_index("persona")
         ev_r = D.evaluar(referencia, cand, franja, tipo, sel_personas).set_index("persona")
 
-        st.subheader(f"{D.FRANJAS[franja]} · {D.TIPOS_DIA[tipo]}: evaluación en el lote 2")
+        st.subheader(f"{D.FRANJAS[franja]} h, {D.TIPOS_DIA[tipo].lower()}: evaluación en el lote 2")
         filas = []
         for nombre, ev, lista in [("Sistema", ev_s, sistema), ("Más escuchadas", ev_r, referencia)]:
             for p in sel_personas:
@@ -446,7 +416,7 @@ if falta_dataset is None:
         col_g, col_t = st.columns([3, 2])
         with col_g:
             fig = px.bar(comp, x="persona", y="tasa_salto", color="lista", barmode="group",
-                         color_discrete_map={"Sistema": "#2a78d6", "Más escuchadas": GRIS},
+                         color_discrete_map={"Sistema": T.RAMPA[0], "Más escuchadas": GRIS},
                          custom_data=["evaluadas", "canciones"],
                          labels={"persona": "", "tasa_salto": "Tasa de salto real (lote 2)", "lista": ""},
                          title="Tasa de salto real en el lote 2 (menos es mejor)")
@@ -479,7 +449,7 @@ if falta_dataset is None:
             return txt.where(~t["duracion_imputada"], txt + " *")
 
         with col_s:
-            st.markdown(f"**Sistema** · {len(sistema)} canciones · {sistema['duracion_ms'].sum() / 60_000:.0f} min")
+            st.markdown(f"**Sistema**: {len(sistema)} canciones, {sistema['duracion_ms'].sum() / 60_000:.0f} min")
             v = sistema[["cancion", "artista", *cols_p, "gusto_grupo", "desempate"]].copy()
             v.insert(2, "duracion", duracion_txt(sistema))
             v["previstos"] = sistema[[f"origen_{p}" for p in sel_personas]].ne("real").sum(axis=1)
@@ -498,7 +468,7 @@ if falta_dataset is None:
                 },
             )
         with col_r:
-            st.markdown(f"**Más escuchadas** · {len(referencia)} canciones · "
+            st.markdown(f"**Más escuchadas**: {len(referencia)} canciones, "
                         f"{referencia['duracion_ms'].sum() / 60_000:.0f} min")
             v = referencia[["cancion", "artista", "escuchas_grupo_l1"]].copy()
             v.insert(2, "duracion", duracion_txt(referencia))
@@ -606,9 +576,9 @@ with tab_api:
                 help=f"Percentil de gusto de {p} (1 = de sus canciones favoritas en este contexto)")
                for p in en_api},
             "gusto_grupo": st.column_config.ProgressColumn(
-                "Grupo", min_value=0, max_value=1, format="%.2f", width="small", color="#1baf7a",
+                "Grupo", min_value=0, max_value=1, format="%.2f", width="small", color=T.TINTA,
                 help="El mínimo de los percentiles: lo que le gusta al que menos le gusta."),
-            "spotify": st.column_config.LinkColumn("", display_text="▶ Spotify", width="small"),
+            "spotify": st.column_config.LinkColumn("", display_text="escuchar", width="small"),
         },
     )
 
@@ -648,7 +618,7 @@ with tab_api:
             "Gusto del grupo = el mínimo; los empates se deshacen con la media."
         )
         st.caption(f"Entrenado del {inf['periodo']['desde']} al {inf['periodo']['hasta']}; preparado el "
-                   f"{inf['preparado'].replace('T', ' a las ')} · {srv.origen_modelo}. Como el periodo incluye el "
+                   f"{inf['preparado'].replace('T', ' a las ')} ({srv.origen_modelo}). Como el periodo incluye el "
                    "lote 2, esta lista no se evalúa con él: la comparación con las más escuchadas está en la "
                    "pestaña Recomendador. Para añadir a alguien, sube su zip a la API o copia sus JSON en "
                    "`data/raw/<nombre>/` y ejecuta `python -m api.preparar_datos`; el panel recarga el modelo solo.")
