@@ -20,7 +20,7 @@ class Preparacion:
         """Pide una preparación. Si ya hay una en marcha, se hará otra al terminar (con los datos más nuevos)."""
         if not self._cerrojo.acquire(blocking=False):
             self._pendiente = True
-            self.estado["motivo"] = f"{self.estado['motivo']} + {motivo}"
+            self.estado.update(estado="en_curso", motivo=f"{self.estado['motivo']} + {motivo}")
             return self.estado
         self.estado.update(estado="en_curso", motivo=motivo, inicio=_ahora(), fin=None, error=None)
         threading.Thread(target=self._ejecutar, daemon=True).start()
@@ -28,7 +28,11 @@ class Preparacion:
 
     def _ejecutar(self):
         try:
+            primera = True
             while True:
+                if not primera:                       # otra pasada: la «lista» anterior ya no vale
+                    self.estado.update(estado="en_curso", inicio=_ahora(), fin=None)
+                primera = False
                 self._pendiente = False
                 try:
                     info = preparar(self.carpeta_historial, "auto", 18, self.carpeta_datos)
