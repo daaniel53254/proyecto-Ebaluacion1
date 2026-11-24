@@ -87,3 +87,10 @@ def test_personas_repetidas(servicio):
 def test_contexto_de_fecha():
     assert contexto_de_fecha("2026-11-28T22:30") == (5, "fin_semana")       # sábado
     assert contexto_de_fecha("2026-11-27T13:00:00Z") == (3, "laborable")     # 14:00 en Madrid
+
+
+def test_artistas_una_sola_grafia_por_nombre(servicio, monkeypatch):
+    base = servicio.catalogo.iloc[[0, 0, 0, 0]].copy()
+    base["artista"] = ["Duko", "duko", "DUKO ", "Duko"]
+    monkeypatch.setattr(servicio, "catalogo", base)
+    assert servicio.artistas() == ["Duko"]                                      # la grafía más frecuente, sin duplicar por mayúsculas

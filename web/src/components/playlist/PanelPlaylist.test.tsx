@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PanelPlaylist } from "@/components/playlist/PanelPlaylist";
 import { ErrorApi, obtenerArtistas, obtenerPersonas, obtenerSalud, pedirPlaylist } from "@/lib/api";
-import type { Persona, Playlist } from "@/lib/tipos";
+import { esperarPreparacion } from "@/lib/preparacion";
+import type { EstadoPreparacion, Persona, Playlist } from "@/lib/tipos";
 
 vi.mock("@/lib/api", async (importarOriginal) => {
   const original = await importarOriginal<typeof import("@/lib/api")>();
@@ -16,6 +17,10 @@ vi.mock("@/lib/api", async (importarOriginal) => {
     pedirPlaylist: vi.fn(),
   };
 });
+
+vi.mock("@/lib/preparacion", () => ({ esperarPreparacion: vi.fn() }));
+
+const EN_CURSO: EstadoPreparacion = { estado: "en_curso", motivo: "subida", inicio: null, fin: null, error: null, resumen: null };
 
 const persona = (nombre: string): Persona => {
   return { persona: nombre, escuchas_periodo: 100, tasa_no_salto: 0.7 };
@@ -90,5 +95,56 @@ describe("PanelPlaylist", () => {
     expect(campo).toHaveAttribute("aria-expanded", "false");
     await usuario.click(chip);
     expect(screen.queryByRole("button", { name: "Volver a poner a Rojuu" })).not.toBeInTheDocument();
+  });
+
+  it("mientras se reentrena, espera al final y entonces recarga y quita el aviso", async () => {
+    vi.mocked(obtenerSalud).mockResolvedValue({ estado: "ok", modelo: "local", preparacion: EN_CURSO });
+    let terminar: () => void = () => undefined;
+    vi.mocked(esperarPreparacion).mockReturnValue(
+      new Promise((resolver) => {
+        terminar = () => resolver({ ...EN_CURSO, estado: "lista" });
+      }),
+    );
+    render(<PanelPlaylist />);
+    expect(await screen.findByText(/Se está volviendo a entrenar/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "carla" })).not.toBeInTheDocument();
+
+    vi.mocked(obtenerSalud).mockResolvedValue({ estado: "ok", modelo: "local", preparacion: null });
+    vi.mocked(obtenerPersonas).mockResolvedValue([persona("ana"), persona("beñat"), persona("carla")]);
+    terminar();
+
+    expect(await screen.findByRole("button", { name: "carla" })).toBeInTheDocument();
+    expect(screen.queryByText(/Se está volviendo a entrenar/)).not.toBeInTheDocument();
+    expect(esperarPreparacion).toHaveBeenCalledTimes(1);
+  });
+
+  it("sin modelo y entrenando, espera y pasa a los filtros cuando termina", async () => {
+    vi.mocked(obtenerSalud).mockResolvedValue({ estado: "sin modelo", modelo: null, preparacion: EN_CURSO });
+    let terminar: () => void = () => undefined;
+    vi.mocked(esperarPreparacion).mockReturnValue(
+      new Promise((resolver) => {
+        terminar = () => resolver({ ...EN_CURSO, estado: "lista" });
+      }),
+    );
+    render(<PanelPlaylist />);
+    expect(await screen.findByText(/Vuelve en un rato/)).toBeInTheDocument();
+
+    vi.mocked(obtenerSalud).mockResolvedValue({ estado: "ok", modelo: "local", preparacion: null });
+    terminar();
+
+    expect(await screen.findByRole("button", { name: "Generar playlist" })).toBeInTheDocument();
+  });
+
+  it("al salir de la página aborta la espera", async () => {
+    vi.mocked(obtenerSalud).mockResolvedValue({ estado: "ok", modelo: "local", preparacion: EN_CURSO });
+    vi.mocked(esperarPreparacion).mockReturnValue(new Promise(() => undefined));
+    const { unmount } = render(<PanelPlaylist />);
+    await screen.findByText(/Se está volviendo a entrenar/);
+    const senal = vi.mocked(esperarPreparacion).mock.calls[0]?.[1]?.senal;
+    expect(senal?.aborted).toBe(false);
+
+    unmount();
+
+    expect(senal?.aborted).toBe(true);
   });
 });

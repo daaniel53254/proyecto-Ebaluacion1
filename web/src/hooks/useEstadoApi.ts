@@ -12,6 +12,8 @@ export type EstadoApi =
   | { tipo: "sin_conexion" }
   | { tipo: "error"; mensaje: string };
 
+const REINTENTO_MS = 2500;
+
 const estadoDeSalud = (salud: Salud): EstadoApi => {
   if (salud.estado === "ok") return { tipo: "modelo_listo", salud };
   return { tipo: "sin_modelo", salud };
@@ -27,15 +29,26 @@ export const useEstadoApi = (): EstadoApi => {
 
   useEffect(() => {
     let vigente = true;
-    obtenerSalud()
-      .then((salud) => {
-        if (vigente) setEstado(estadoDeSalud(salud));
-      })
-      .catch((fallo: unknown) => {
-        if (vigente) setEstado(estadoDeFallo(fallo));
-      });
+    let temporizador: ReturnType<typeof setTimeout> | undefined;
+
+    // Con «sin conexión» se reintenta: el .bat arranca la API y la web a la vez y la API tarda más.
+    const comprobar = () => {
+      obtenerSalud()
+        .then((salud) => {
+          if (vigente) setEstado(estadoDeSalud(salud));
+        })
+        .catch((fallo: unknown) => {
+          if (!vigente) return;
+          const nuevo = estadoDeFallo(fallo);
+          setEstado(nuevo);
+          if (nuevo.tipo === "sin_conexion") temporizador = setTimeout(comprobar, REINTENTO_MS);
+        });
+    };
+    comprobar();
+
     return () => {
       vigente = false;
+      clearTimeout(temporizador);
     };
   }, []);
 

@@ -219,9 +219,12 @@ class Servicio:
 
     # ------------------------------------------------------------- información
     def artistas(self) -> list[str]:
-        """Artistas distintos del catálogo, sin vacíos y ordenados sin distinguir mayúsculas."""
+        """Artistas distintos del catálogo (una sola grafía por nombre, la más frecuente), sin vacíos y ordenados sin distinguir mayúsculas."""
         a = self.catalogo["artista"].dropna().astype(str).str.strip()
-        return sorted(set(a[a != ""]), key=str.casefold)
+        elegidos: dict[str, str] = {}
+        for nombre in a[a != ""].value_counts(sort=True).index:  # de más a menos frecuente; en empate, primero en aparecer
+            elegidos.setdefault(nombre.casefold(), nombre)
+        return sorted(elegidos.values(), key=str.casefold)
 
     def descripcion(self) -> dict:
         return {"origen_modelo": self.origen_modelo, "registro_mlflow": f"{NOMBRE_REGISTRO}@produccion",

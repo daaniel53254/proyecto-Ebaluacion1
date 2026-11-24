@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ErrorApi, obtenerArtistas, obtenerPersonas, obtenerSalud, pedirPlaylist } from "@/lib/api";
+import { ErrorApi, obtenerArtistas, obtenerPersonas, obtenerPreparacion, obtenerSalud, pedirPlaylist } from "@/lib/api";
 import { lineasDeDetalle } from "@/lib/errores";
 import {
   aPeticion,
@@ -15,6 +15,7 @@ import {
   quitarArtista,
   sumarArtista,
 } from "@/lib/filtros";
+import { esperarPreparacion } from "@/lib/preparacion";
 import type { EstadoPreparacion, Playlist, TipoDia } from "@/lib/tipos";
 
 export type EstadoCarga =
@@ -53,11 +54,14 @@ export const usePlaylist = () => {
   const [carga, setCarga] = useState<EstadoCarga>({ tipo: "cargando" });
   const [filtros, setFiltros] = useState<Filtros>(() => filtrosIniciales([]));
   const [resultado, setResultado] = useState<EstadoResultado>({ tipo: "sin_generar" });
+  // Entrenamiento en marcha que hay que esperar: al terminar se recargan personas y artistas.
+  const [entrenando, setEntrenando] = useState<EstadoPreparacion | null>(null);
   const generaciones = useRef(0);
 
   const cargar = useCallback(async () => {
     try {
       const salud = await obtenerSalud();
+      setEntrenando(salud.preparacion?.estado === "en_curso" ? salud.preparacion : null);
       if (salud.estado !== "ok") {
         setCarga({ tipo: "sin_modelo", preparacion: salud.preparacion });
         return;
@@ -75,6 +79,19 @@ export const usePlaylist = () => {
   useEffect(() => {
     void cargar();
   }, [cargar]);
+
+  useEffect(() => {
+    if (entrenando === null) return;
+    const control = new AbortController();
+    esperarPreparacion(obtenerPreparacion, { inicial: entrenando, senal: control.signal })
+      .catch(() => {
+        // Si no se puede seguir (API caída), la recarga de abajo ya enseñará el estado real.
+      })
+      .finally(() => {
+        if (!control.signal.aborted) void cargar();
+      });
+    return () => control.abort();
+  }, [entrenando, cargar]);
 
   const generar = async () => {
     setResultado({ tipo: "generando" });

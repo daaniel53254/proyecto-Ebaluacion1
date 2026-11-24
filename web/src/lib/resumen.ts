@@ -20,7 +20,7 @@ export const cifrasDe = (playlist: Playlist): CifrasPlaylist => {
   return {
     canciones: canciones.length,
     duracionMin: playlist.duracion_total_min,
-    artistasDistintos: new Set(canciones.map((c) => c.artista)).size,
+    artistasDistintos: new Set(canciones.map((c) => c.artista.toLocaleLowerCase("es"))).size,
     conGustoRealDeTodos: canciones.length === 0 ? 0 : conocidas / canciones.length,
   };
 };

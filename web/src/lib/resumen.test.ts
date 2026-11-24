@@ -37,6 +37,11 @@ describe("resumen", () => {
     expect(cifrasDe({ ...PLAYLIST, canciones: [] }).conGustoRealDeTodos).toBe(0);
   });
 
+  it("cifrasDe cuenta una sola vez al artista aunque cambien las mayúsculas", () => {
+    const canciones = [cancion("Duko", 0.8, 0.6, true), cancion("duko", 0.6, 1, true), cancion("Rojuu", 0.5, 0.5, true)];
+    expect(cifrasDe({ ...PLAYLIST, canciones }).artistasDistintos).toBe(2);
+  });
+
   it("gustoMedioPorPersona", () => {
     const medias = gustoMedioPorPersona(PLAYLIST);
     expect(medias.map((m) => m.persona)).toEqual(["ana", "beñat"]);
