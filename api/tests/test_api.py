@@ -63,6 +63,15 @@ def test_playlist_ignorar_horario(cliente):
     assert j["franja"] is None and j["tipo_dia"] == "cualquiera" and "conocida_por_todos" in j["canciones"][0]
 
 
+def test_playlist_historial_completo(cliente):
+    r = cliente.post("/objetivo2/playlist", json={"personas": ["ana", "beñat"], "franja": 2, "tipo_dia": "laborable",
+                                                  "historial": "completo", "n": 15})
+    assert r.status_code == 200, r.text
+    assert r.json()["historial"] == "completo" and r.json()["n_canciones"] == 15
+    r = cliente.post("/objetivo2/playlist", json={"personas": ["ana"], "franja": 2, "tipo_dia": "laborable", "historial": "todo"})
+    assert r.status_code == 422
+
+
 def test_errores_playlist(cliente):
     assert cliente.post("/objetivo2/playlist", json={"personas": [], "franja": 1, "tipo_dia": "laborable"}).status_code == 422
     assert cliente.post("/objetivo2/playlist", json={"personas": ["ana"], "franja": 1, "tipo_dia": "laborable", "n": 0}).status_code == 422
