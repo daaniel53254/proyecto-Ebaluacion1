@@ -32,6 +32,7 @@ export const useSelectorArtistas = ({ artistas, elegidos, alElegir, alQuitar }: 
     alElegir(artista);
     setBusqueda("");
     setActivo(0);
+    setAbierto(false);
   };
 
   const moverse = (paso: 1 | -1) => {

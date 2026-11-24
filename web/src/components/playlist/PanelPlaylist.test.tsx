@@ -87,6 +87,7 @@ describe("PanelPlaylist", () => {
 
     const chip = screen.getByRole("button", { name: "Volver a poner a Rojuu" });
     expect(campo).toHaveValue("");
+    expect(campo).toHaveAttribute("aria-expanded", "false");
     await usuario.click(chip);
     expect(screen.queryByRole("button", { name: "Volver a poner a Rojuu" })).not.toBeInTheDocument();
   });
