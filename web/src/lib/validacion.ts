@@ -1,8 +1,11 @@
-// Comprobaciones mínimas del JSON que llega de la API: la forma de primer nivel de cada respuesta.
+// Comprobaciones mínimas del JSON que llega de la API: la forma de primer nivel de cada respuesta y, en la
+// playlist, también la de cada canción, porque la tabla lee todos sus campos.
 // La API valida con Pydantic lo que devuelve; aquí solo se evita tratar como válida una respuesta ajena
 // (otro servicio en el mismo puerto, un proxy, una versión antigua).
 import type {
+  CancionPlaylist,
   EstadoPreparacion,
+  GustoMiembro,
   Historial,
   Persona,
   Playlist,
@@ -92,13 +95,57 @@ export const esRespuestaSubida: Comprobacion<RespuestaSubida> = (valor): valor i
   return esResumenSubida(valor.historial) && esEstadoPreparacion(valor.preparacion);
 };
 
-export const esPlaylist: Comprobacion<Playlist> = (valor): valor is Playlist => {
+const esNumeroONulo = (valor: unknown): valor is number | null => {
+  return valor === null || typeof valor === "number";
+};
+
+const esGustoMiembro = (valor: unknown): valor is GustoMiembro => {
   if (!esObjeto(valor)) return false;
   return (
-    esListaTextos(valor.personas) &&
-    typeof valor.regla === "string" &&
-    typeof valor.duracion_total_min === "number" &&
-    Array.isArray(valor.canciones)
+    typeof valor.gusto === "number" &&
+    typeof valor.percentil === "number" &&
+    (valor.origen === "real" || valor.origen === "prevista")
   );
 };
 
+const esGustosDeMiembros = (valor: unknown): valor is Record<string, GustoMiembro> => {
+  return esObjeto(valor) && Object.values(valor).every(esGustoMiembro);
+};
+
+export const esCancionPlaylist: Comprobacion<CancionPlaylist> = (valor): valor is CancionPlaylist => {
+  if (!esObjeto(valor)) return false;
+  return (
+    typeof valor.posicion === "number" &&
+    typeof valor.track_id === "string" &&
+    typeof valor.cancion === "string" &&
+    typeof valor.artista === "string" &&
+    esNumeroONulo(valor.duracion_s) &&
+    typeof valor.gusto_grupo === "number" &&
+    typeof valor.desempate === "number" &&
+    typeof valor.conocida_por_todos === "boolean" &&
+    esGustosDeMiembros(valor.miembros)
+  );
+};
+
+const esListaCanciones = esListaDe(esCancionPlaylist);
+
+// Cada canción trae el gusto de todos los del grupo: la tabla pinta una barra por persona.
+const tieneATodos = (canciones: CancionPlaylist[], personas: string[]): boolean => {
+  return canciones.every((cancion) => personas.every((persona) => persona in cancion.miembros));
+};
+
+export const esPlaylist: Comprobacion<Playlist> = (valor): valor is Playlist => {
+  if (!esObjeto(valor)) return false;
+  const { personas, canciones } = valor;
+  return (
+    esListaTextos(personas) &&
+    esNumeroONulo(valor.franja) &&
+    typeof valor.franja_horas === "string" &&
+    typeof valor.tipo_dia === "string" &&
+    typeof valor.regla === "string" &&
+    typeof valor.n_canciones === "number" &&
+    typeof valor.duracion_total_min === "number" &&
+    esListaCanciones(canciones) &&
+    tieneATodos(canciones, personas)
+  );
+};
