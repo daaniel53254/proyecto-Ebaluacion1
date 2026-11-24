@@ -218,6 +218,11 @@ class Servicio:
                 "n_canciones": len(canciones), "duracion_total_min": round(total / 60, 1), "canciones": canciones}
 
     # ------------------------------------------------------------- información
+    def artistas(self) -> list[str]:
+        """Artistas distintos del catálogo, sin vacíos y ordenados sin distinguir mayúsculas."""
+        a = self.catalogo["artista"].dropna().astype(str).str.strip()
+        return sorted(set(a[a != ""]), key=str.casefold)
+
     def descripcion(self) -> dict:
         return {"origen_modelo": self.origen_modelo, "registro_mlflow": f"{NOMBRE_REGISTRO}@produccion",
                 **{k: v for k, v in self.info.items() if k != "columnas"},

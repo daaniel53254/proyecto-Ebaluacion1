@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -28,6 +29,8 @@ RAIZ = Path(__file__).resolve().parent.parent
 CARPETA_DATOS = Path(os.environ.get("API_DATOS", Path(__file__).resolve().parent / "datos"))
 CARPETA_HISTORIAL = Path(os.environ.get("API_HISTORIAL", carpeta_historial_por_defecto(RAIZ)))
 MAX_SUBIDA = 400 * 1024 * 1024
+# Orígenes de la web (Next.js) autorizados a llamar a la API desde el navegador; se cambian con API_ORIGENES (separados por comas)
+ORIGENES = [o.strip() for o in os.environ.get("API_ORIGENES", "http://127.0.0.1:3000,http://localhost:3000").split(",") if o.strip()]
 ESTADO: dict = {"servicio": None, "error_carga": None, "preparacion": None}
 
 
@@ -67,6 +70,8 @@ app = FastAPI(
     lifespan=ciclo_de_vida,
     openapi_tags=[{"name": "historiales"}, {"name": "información"}, {"name": "objetivo 1"}, {"name": "objetivo 2"}],
 )
+
+app.add_middleware(CORSMiddleware, allow_origins=ORIGENES, allow_methods=["*"], allow_headers=["*"])
 
 RESPUESTAS_ERROR = {404: {"model": Error, "description": "persona o canción desconocidas"},
                     422: {"model": Error, "description": "entrada no válida"},
@@ -108,7 +113,7 @@ async def _error_interno(request: Request, e: Exception):
 @app.get("/", tags=["información"])
 def inicio():
     return {"proyecto": "Playlist perfecta para viajes en grupo", "documentacion": "/docs",
-            "endpoints": ["/historiales", "/preparacion", "/salud", "/modelo", "/personas", "/contextos",
+            "endpoints": ["/historiales", "/preparacion", "/salud", "/modelo", "/personas", "/artistas", "/contextos",
                           "/objetivo1/prediccion", "/objetivo2/playlist"]}
 
 
@@ -186,6 +191,11 @@ def personas():
     p = servicio().personas
     return [{"persona": i, "escuchas_periodo": int(r.escuchas), "tasa_no_salto": round(float(r.tasa_no_salto), 4)}
             for i, r in p.iterrows()]
+
+
+@app.get("/artistas", tags=["información"], responses=RESPUESTAS_ERROR)
+def artistas():
+    return servicio().artistas()
 
 
 @app.get("/contextos", tags=["información"])

@@ -97,3 +97,19 @@ def test_subir_historial_y_reentrenar(cliente):
                         files={"archivo": ("a.zip", b"no es un zip", "application/zip")}).status_code == 422
     assert cliente.delete("/historiales/carla").status_code == 202
     assert cliente.delete("/historiales/carla").status_code == 404
+
+
+def test_artistas(cliente):
+    r = cliente.get("/artistas")
+    assert r.status_code == 200
+    a = r.json()
+    assert a and all(isinstance(x, str) and x for x in a)
+    assert a == sorted(a, key=str.casefold) and len(a) == len(set(a))
+
+
+def test_cors_web(cliente):
+    r = cliente.options("/personas", headers={"Origin": "http://127.0.0.1:3000",
+                                              "Access-Control-Request-Method": "GET"})
+    assert r.headers["access-control-allow-origin"] == "http://127.0.0.1:3000"
+    r = cliente.get("/salud", headers={"Origin": "http://otro.com"})
+    assert "access-control-allow-origin" not in r.headers
