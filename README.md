@@ -50,6 +50,9 @@ proyecto-Ebaluacion1/
 │       ├── gold.sql              gold.objetivo1 y gold.candidatas
 │       └── validar_limpieza.sql  cada problema contado en bronze y en silver
 ├── panel/                  panel v1 en Streamlit (app.py, datos.py; ver panel/README.md)
+├── api/                    API FastAPI del modelo de playlists
+├── web/                    web de usuario en Next.js (ver web/README.md)
+├── arrancar_web.bat        arranca la API y la web con una carpeta de demo (data/demo)
 ├── notebooks/              notebooks de la etapa de IA (01 revisión, 02 EDA, 03 modelos base)
 ├── docs/
 │   ├── diccionario_datos.md  columnas, tipos y cifras de cada capa
@@ -78,6 +81,10 @@ docker compose ps
 ```
 
 Todos los servicios deben aparecer como `healthy`.
+
+### Web de usuario
+
+Para probar la web de playlists para viajes en grupo (sin Docker), ejecuta `arrancar_web.bat` desde la raíz: levanta la API y la web sobre una carpeta de demo (`data/demo`) y abre `http://127.0.0.1:3000`. Instrucciones, variables y cómo dar de alta la app de Spotify en [`web/README.md`](web/README.md).
 
 ## Validar el entorno
 
