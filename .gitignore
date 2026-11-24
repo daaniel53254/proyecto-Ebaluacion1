@@ -10,6 +10,8 @@ data/.pipeline_en_marcha/
 data/**/*.json
 # Datos que genera python -m api.preparar_datos a partir de los historiales (personales)
 api/datos/
+# Modelos entrenados con los historiales (notebook 07)
+modelos/*.joblib
 
 # --- MLflow (servidor local: entorno virtual, base de datos y artefactos) ---
 mlruns/
