@@ -10,8 +10,8 @@ const cancion = (artista: string, ana: number, beñat: number, conocida: boolean
     cancion: "c",
     artista,
     duracion_s: 180,
-    gusto_grupo: Math.min(ana, beñat),
-    desempate: (ana + beñat) / 2,
+    gusto_grupo: (ana + beñat) / 2,
+    desempate: Math.min(ana, beñat),
     conocida_por_todos: conocida,
     miembros: {
       ana: { gusto: ana, percentil: ana, origen: "real" },

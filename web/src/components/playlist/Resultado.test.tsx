@@ -32,7 +32,7 @@ const PLAYLIST: Playlist = {
   franja: null,
   franja_horas: "sin horario",
   tipo_dia: "sin horario",
-  regla: "percentil del gusto de cada miembro; gusto del grupo = mínimo",
+  regla: "percentil del gusto de cada miembro; gusto del grupo = media",
   n_canciones: 4,
   duracion_total_min: 12.5,
   canciones: [

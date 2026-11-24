@@ -312,4 +312,4 @@ export const nombrePlaylist = (personas: string[], fecha: Date): string => {
 };
 
 export const DESCRIPCION_PLAYLIST =
-  "Hecha con NPD Entertainment: cada canción vale lo que le gusta al que menos le gusta.";
+  "Hecha con NPD Entertainment: cada canción vale la media de lo que le gusta a cada uno.";

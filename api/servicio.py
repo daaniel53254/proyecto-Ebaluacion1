@@ -175,7 +175,7 @@ class Servicio:
 
     def playlist(self, personas: list[str], franja: int | None, tipo_dia: str | None, n: int | None = 50,
                  duracion_min: float | None = None, excluir_artistas=()) -> dict:
-        """Playlist del grupo: mínimo de los percentiles de los miembros, desempate por la media.
+        """Playlist del grupo: media de los percentiles de los miembros, desempate por el mínimo.
 
         Sin horario (franja y tipo_dia a None) van primero las canciones con gusto real de todos los
         miembros y después las que dependen de alguna predicción."""
@@ -185,7 +185,7 @@ class Servicio:
         f = self.gustos(personas, franja, tipo_dia)
         f["es_real"] = f["origen"].eq("real")
         g = (f.groupby("track_id")
-              .agg(gusto_grupo=("percentil", "min"), desempate=("percentil", "mean"), conocida_por_todos=("es_real", "all"))
+              .agg(gusto_grupo=("percentil", "mean"), desempate=("percentil", "min"), conocida_por_todos=("es_real", "all"))
               .join(self.catalogo[["cancion", "artista", "duracion_s"]]))
         if excluir_artistas:
             fuera = {a.casefold() for a in excluir_artistas}
@@ -209,7 +209,7 @@ class Servicio:
                               "desempate": round(float(r["desempate"]), 4),
                               "conocida_por_todos": bool(r["conocida_por_todos"]), "miembros": miembros})
         total = sum(c["duracion_s"] or 0 for c in canciones)
-        regla = "percentil del gusto de cada miembro; gusto del grupo = mínimo; empates por la media"
+        regla = "percentil del gusto de cada miembro; gusto del grupo = media; empates por el mínimo"
         if sin_horario:
             regla = "sin horario: primero las canciones con gusto real de todos; después, " + regla
         return {"personas": personas, "franja": None if sin_horario else int(franja),
