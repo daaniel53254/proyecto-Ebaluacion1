@@ -1,0 +1,141 @@
+/* Hallmark · v2.0.0 · genre: atmospheric · theme: brand (NPD Entertainment, colours read from panel/img/npd_logo.png) · shape: app screen · scope: app · redesign: restyle · built: the project · signature: the group playlist, one bar per person in the logo's orange and green and the group's minimum
+ * pre-emit critique: P4 H4 E4 S5 R5 V3 · weakest: V, the layout stays by request; the logo's orange bars and green wave carry the data, the loader and the person colours
+ * Tokens: same values as panel/tema.py and .streamlit/config.toml (Streamlit only takes hex there). */
+/* Hallmark · dismissed 41 · white text only sits on the deeper orange #c8432a (Streamlit primaryColor, 4.85:1); the logo orange #df4e32 only marks lines, bars and the focus ring */
+
+:root {
+  --color-paper: #040708;
+  --color-paper-2: #0d1112;
+  --color-paper-3: #161b1c;
+  --color-ink: #f4f4f2;
+  --color-ink-2: #c9cccb;
+  --color-muted: #8f9594;
+  --color-rule: #222829;
+  --color-rule-2: #3a4243;
+  --color-accent: #df4e32;
+  --color-accent-deep: #c8432a;
+  --color-accent-soft: #432621;
+  --color-accent-2: #6ca67d;
+  --color-data-1: #d23f18;
+  --color-data-2: #52ab69;
+  --color-data-3: #3a84ca;
+  --color-accent-ink: #fefefe;
+  --color-focus: #df4e32;
+  --font-display: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Onest", ui-sans-serif, system-ui, sans-serif;
+  --tracking-display: -0.02em;
+  --dur-micro: 120ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html, body { overflow-x: clip; background: var(--color-paper); }
+html { scrollbar-color: var(--color-rule-2) var(--color-paper); }
+::selection { background: var(--color-accent-soft); color: var(--color-ink); }
+
+/* Cabecera de Streamlit: del color del fondo, sin franja. */
+[data-testid="stHeader"] { background: var(--color-paper); }
+
+/* Títulos: Montserrat 700, como el nombre del logo, interlineado justo. */
+h1, h2, h3,
+[data-testid="stHeading"] h1, [data-testid="stHeading"] h2, [data-testid="stHeading"] h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  line-height: 1.1;
+  text-wrap: balance;
+  color: var(--color-ink);
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+[data-testid="stSidebar"] h2 { font-size: 1.25rem; }
+
+/* Pestañas: el activo en tinta con la raya naranja. */
+[data-testid="stTab"] {
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--color-muted);
+  transition: color var(--dur-micro) var(--ease-out);
+}
+[data-testid="stTab"] p { font-size: 1rem; }
+[data-testid="stTab"]:hover { color: var(--color-ink); }
+[data-testid="stTab"][aria-selected="true"] { color: var(--color-ink); }
+[data-testid="stTab"]:active, button[kind]:active { opacity: 0.8; }
+
+/* Cifras: Onest fina con números proporcionales (dataviz: ni fuente de títulos ni tabulares en una cifra suelta); la etiqueta, un paso menor y apagada. */
+[data-testid="stMetricValue"] {
+  font-family: var(--font-body);
+  font-weight: 300;
+  letter-spacing: var(--tracking-display);
+  color: var(--color-ink);
+}
+[data-testid="stMetricLabel"] p {
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+/* Etiquetas de los controles y pies de texto. */
+[data-testid="stWidgetLabel"] p {
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--color-muted);
+}
+[data-testid="stCaptionContainer"] { color: var(--color-muted); }
+
+/* Botones, pastillas y control segmentado. */
+button[kind], [data-testid="stBaseButton-segmented_control"],
+[data-testid="stBaseButton-segmented_controlActive"] {
+  font-family: var(--font-display);
+  font-weight: 500;
+  transition: background-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
+}
+
+/* Expanders: superficie un paso más clara, sin borde. */
+[data-testid="stExpander"] details {
+  background: var(--color-paper-2);
+  border-color: var(--color-rule);
+}
+[data-testid="stExpander"] summary p {
+  font-family: var(--font-display);
+  font-weight: 500;
+}
+
+/* Enlaces: subrayado naranja al pasar. */
+a { color: var(--color-ink-2); text-decoration-color: var(--color-rule-2); text-underline-offset: 3px; }
+a:hover { color: var(--color-ink); text-decoration-color: var(--color-accent); }
+
+/* Logo de la barra lateral: centrado, sin marco (su fondo es el mismo negro). */
+[data-testid="stSidebar"] [data-testid="stImage"] img { display: block; margin-inline: auto; }
+
+/* Foco visible, al instante, en todo lo que se puede pulsar o escribir. */
+a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible,
+[role="tab"]:focus-visible, [role="button"]:focus-visible, [role="slider"]:focus-visible,
+[role="combobox"]:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  transition: none;
+}
+
+/* «Cargando»: ecualizador de cuatro barras con los colores del logo (arriba a la derecha). */
+[data-testid="stStatusWidgetRunningIcon"] > * { display: none !important; }
+[data-testid="stStatusWidgetRunningIcon"] {
+  width: 22px !important;
+  height: 18px !important;
+  background:
+    linear-gradient(var(--color-data-1), var(--color-data-1)) 0% 100% / 4px 40% no-repeat,
+    linear-gradient(var(--color-data-2), var(--color-data-2)) 33% 100% / 4px 80% no-repeat,
+    linear-gradient(var(--color-data-3), var(--color-data-3)) 66% 100% / 4px 55% no-repeat,
+    linear-gradient(var(--color-data-1), var(--color-data-1)) 100% 100% / 4px 70% no-repeat;
+  animation: ecualizador 0.9s ease-in-out infinite alternate;
+}
+@keyframes ecualizador {
+  0%   { background-size: 4px 30%, 4px 90%, 4px 50%, 4px 70%; }
+  33%  { background-size: 4px 85%, 4px 35%, 4px 95%, 4px 40%; }
+  66%  { background-size: 4px 55%, 4px 70%, 4px 30%, 4px 95%; }
+  100% { background-size: 4px 95%, 4px 45%, 4px 75%, 4px 25%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-testid="stStatusWidgetRunningIcon"] { animation: none; }
+  [data-testid="stTab"], button[kind] { transition: none; }
+}
