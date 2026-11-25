@@ -106,6 +106,8 @@ def compactar(T: dict) -> dict:
 
 def _asof(izq, der, cuando, por, columnas):
     der = der[[cuando] + por + columnas].rename(columns={cuando: "_t"}).sort_values("_t", kind="stable")
+    # merge_asof exige la misma unidad en las dos fechas (pandas 3 lee las fechas en microsegundos)
+    der["_t"] = der["_t"].dt.as_unit("ns")
     r = pd.merge_asof(izq, der, left_on="hora_local", right_on="_t", by=por, allow_exact_matches=False)
     return r.drop(columns="_t")
 

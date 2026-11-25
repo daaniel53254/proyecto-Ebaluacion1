@@ -100,12 +100,11 @@ def test_pocos_datos_no_impide_preparar(carpeta_datos, servicio):
 
 
 # ------------------------------------------------------------------------- HTTP
-pytest.importorskip("fastapi")
-pytest.importorskip("httpx")
-
-
+# Solo estas pruebas necesitan fastapi y httpx: sin ellos se saltan, y las de arriba se ejecutan igual
 @pytest.fixture(scope="module")
 def cliente(carpeta_novedades, tmp_path_factory):
+    pytest.importorskip("fastapi")
+    pytest.importorskip("httpx")
     import shutil
     from fastapi.testclient import TestClient
     import api.main as main
