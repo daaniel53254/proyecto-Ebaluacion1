@@ -195,3 +195,34 @@ def test_playlist_desempate(cliente):
     cuerpo = {"personas": ["ana", "beñat"], "franja": 2, "tipo_dia": "laborable", "n": 10}
     assert cliente.post("/objetivo2/playlist", json={**cuerpo, "desempate": "media_y_escuchas"}).status_code == 200
     assert cliente.post("/objetivo2/playlist", json={**cuerpo, "desempate": "otro"}).status_code == 422
+
+
+def test_artistas(cliente):
+    r = cliente.get("/artistas")
+    assert r.status_code == 200
+    a = r.json()
+    assert a and all(isinstance(x, str) and x for x in a)
+    assert a == sorted(a, key=str.casefold) and len(a) == len(set(a))
+
+
+def test_cors_web(cliente):
+    r = cliente.options("/personas", headers={"Origin": "http://127.0.0.1:3000",
+                                              "Access-Control-Request-Method": "GET"})
+    assert r.headers["access-control-allow-origin"] == "http://127.0.0.1:3000"
+    r = cliente.get("/salud", headers={"Origin": "http://otro.com"})
+    assert "access-control-allow-origin" not in r.headers
+
+
+def test_cancion_canciones_y_artistas_por_persona(cliente):
+    p = cliente.post("/objetivo2/playlist", json={"personas": ["ana", "beñat"], "franjas": [3, 4], "tipo_dia": "fin_semana",
+                                                  "n": 5}).json()
+    assert p["franja_horas"] == "12-20h"
+    tid = p["canciones"][0]["track_id"]
+    r = cliente.post("/objetivo2/cancion", json={"track_id": tid, "personas": ["ana", "beñat"], "franjas": [3, 4],
+                                                 "tipo_dia": "fin_semana", "n": 5})
+    assert r.status_code == 200 and r.json()["entra"] and r.json()["posicion"] == 1
+    assert cliente.post("/objetivo2/cancion", json={"track_id": "x", "personas": ["ana"], "ignorar_horario": True}).status_code == 404
+    assert cliente.get("/canciones", params={"buscar": "a"}).status_code == 422
+    assert isinstance(cliente.get("/canciones", params={"buscar": "artista"}).json(), list)
+    a = cliente.get("/artistas", params={"por_persona": True}).json()
+    assert a and isinstance(a[0]["personas"], dict)

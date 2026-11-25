@@ -498,11 +498,11 @@ if falta_dataset is None:
             },
         )
         s, r = rc.loc["Sistema", "tasa_salto"], rc.loc["Más escuchadas", "tasa_salto"]
-        if s < r:
-            st.success(f"El sistema salta menos que la lista de las más escuchadas: {pct(s)} frente a {pct(r)}.")
-        else:
-            st.error(f"Hipótesis sin cumplir todavía: el sistema salta {pct(s)} frente a {pct(r)} de la lista "
-                     "de las más escuchadas.")
+        comparacion = "menos" if s < r else "más"
+        st.info(f"Con esta medida (media de los 12 contextos, como el notebook 03) el sistema salta {comparacion} "
+                f"que la lista de las más escuchadas: {pct(s)} frente a {pct(r)}. La evaluación final es la del "
+                "notebook 06: emparejada por persona y contexto, con canciones de 5 o más escuchas y la regla "
+                "acordada, y da 5,8 puntos menos de saltos (intervalo del 95 %: de -11,3 a -0,5).")
 
 # ------------------------------------------------------- 5. playlist con el modelo de la API
 

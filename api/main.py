@@ -13,11 +13,13 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, Header, Request, UploadFile
+from fastapi import FastAPI, File, Form, Header, Query, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from api.esquemas import Error, PeticionPlaylist, PeticionPrediccion, RespuestaPlaylist, RespuestaPrediccion
+from api.esquemas import (CancionCatalogo, Error, PeticionCancion, PeticionPlaylist, PeticionPrediccion, RespuestaCancion,
+                          RespuestaPlaylist, RespuestaPrediccion)
 from api import historiales, privacidad
 from api.caracteristicas import carpeta_historial_por_defecto
 from api.preparacion import Preparacion
@@ -28,6 +30,8 @@ RAIZ = Path(__file__).resolve().parent.parent
 CARPETA_DATOS = Path(os.environ.get("API_DATOS", Path(__file__).resolve().parent / "datos"))
 CARPETA_HISTORIAL = Path(os.environ.get("API_HISTORIAL", carpeta_historial_por_defecto(RAIZ)))
 MAX_SUBIDA = 400 * 1024 * 1024
+# Orígenes de la web (Next.js) autorizados a llamar a la API desde el navegador; se cambian con API_ORIGENES (separados por comas)
+ORIGENES = [o.strip() for o in os.environ.get("API_ORIGENES", "http://127.0.0.1:3000,http://localhost:3000").split(",") if o.strip()]
 ESTADO: dict = {"servicio": None, "error_carga": None, "preparacion": None}
 
 
@@ -75,6 +79,8 @@ app = FastAPI(
                   {"name": "objetivo 2"}],
 )
 
+app.add_middleware(CORSMiddleware, allow_origins=ORIGENES, allow_methods=["*"], allow_headers=["*"])
+
 RESPUESTAS_ERROR = {403: {"model": Error, "description": "falta el token X-Token de esa persona o no coincide"},
                     404: {"model": Error, "description": "persona o canción desconocidas"},
                     422: {"model": Error, "description": "entrada no válida"},
@@ -116,8 +122,10 @@ async def _error_interno(request: Request, e: Exception):
 @app.get("/", tags=["información"])
 def inicio():
     return {"proyecto": "Playlist perfecta para viajes en grupo", "documentacion": "/docs",
-            "endpoints": ["/historiales", "/privacidad", "/preparacion", "/salud", "/modelo", "/personas", "/contextos",
-                          "/objetivo1/prediccion", "/objetivo2/playlist"]}
+            "endpoints": ["/historiales", "/privacidad", "/preparacion", "/salud", "/modelo", "/personas", "/artistas",
+                          "/contextos",
+                          "/canciones", "/objetivo1/prediccion",
+                          "/objetivo2/playlist", "/objetivo2/cancion"]}
 
 
 @app.get("/salud", tags=["información"])
@@ -239,6 +247,13 @@ def personas():
             for i, r in p.iterrows()]
 
 
+@app.get("/artistas", tags=["información"], responses=RESPUESTAS_ERROR)
+def artistas(por_persona: bool = Query(False, description="true: cada artista con las escuchas de cada persona que "
+                                                          "lo tiene en su historial (solo los que alguien ha escuchado)")):
+    s = servicio()
+    return s.artistas_por_persona() if por_persona else s.artistas()
+
+
 @app.get("/contextos", tags=["información"])
 def contextos():
     return [{"franja": i, "horas": h, "tipo_dia": t} for t in ("laborable", "fin_semana") for i, h in enumerate(NOMBRES_FRANJA)]
@@ -256,6 +271,25 @@ def prediccion(peticion: PeticionPrediccion):
           response_model_exclude_unset=True)
 def playlist(peticion: PeticionPlaylist):
     """Playlist para el grupo en un contexto, ordenada por el gusto del grupo (mínimo de percentiles)."""
-    return servicio().playlist(peticion.personas, peticion.franja, peticion.tipo_dia, peticion.n,
+    return servicio().playlist(peticion.personas, peticion.franja_pedida(), peticion.tipo_dia, peticion.n,
                                peticion.duracion_min, peticion.excluir_artistas, peticion.historial,
-                               detalle_miembros=peticion.detalle_miembros, desempate=peticion.desempate)
+                               detalle_miembros=peticion.detalle_miembros, desempate=peticion.desempate,
+                               excluir_canciones=peticion.excluir_canciones)
+
+
+@app.post("/objetivo2/cancion", tags=["objetivo 2"], response_model=RespuestaCancion, responses=RESPUESTAS_ERROR)
+def cancion_en_playlist(peticion: PeticionCancion):
+    """¿Entraría esta canción en la playlist del grupo con estos filtros? Su puesto en el mismo orden que
+    POST /objetivo2/playlist y la tasa de no salto de cada miembro (objetivo 1)."""
+    return servicio().cancion_en_playlist(peticion.track_id, peticion.personas, peticion.franja_pedida(),
+                                          peticion.tipo_dia, peticion.n, peticion.duracion_min,
+                                          peticion.excluir_artistas, peticion.historial, desempate=peticion.desempate,
+                                          excluir_canciones=peticion.excluir_canciones)
+
+
+@app.get("/canciones", tags=["información"], response_model=list[CancionCatalogo], responses=RESPUESTAS_ERROR)
+def canciones(buscar: str = Query(..., min_length=2, max_length=100, description="parte del título o del artista"),
+              limite: int = Query(20, ge=1, le=50)):
+    """Canciones que alguien del grupo ha escuchado y contienen el texto en el título o el artista, las más escuchadas
+    primero, con las escuchas de cada persona."""
+    return servicio().buscar_canciones(buscar, limite)

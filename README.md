@@ -56,6 +56,8 @@ proyecto-Ebaluacion1/
 ├── api/                    API con FastAPI: subida de historiales, reentrenamiento, objetivos 1 y 2 (ver «API (FastAPI)»)
 │   └── tests/              pruebas con datos sintéticos (python -m pytest api -q)
 ├── panel/                  panel en Streamlit (app.py, datos.py, tema NPD; ver panel/README.md)
+├── web/                    web de usuario en Next.js (ver web/README.md)
+├── arrancar_web.bat        arranca la API y la web con una carpeta de demo (data/demo)
 ├── notebooks/              notebooks de la etapa de IA (01 revisión, 02 EDA, 03 modelos base, 04 drift, 05 modelos finales, 06 objetivo 2 final, 07 mejoras temporales)
 ├── scripts/
 │   └── probar_tercer_historial.py  prueba de la API con el historial de una tercera persona
@@ -88,6 +90,10 @@ docker compose ps
 ```
 
 Todos los servicios deben aparecer como `healthy`.
+
+### Web de usuario
+
+Para probar la web de playlists para viajes en grupo (sin Docker), ejecuta `arrancar_web.bat` desde la raíz: levanta la API y la web sobre una carpeta de demo (`data/demo`) y abre `http://127.0.0.1:3000`. Instrucciones, variables y cómo dar de alta la app de Spotify en [`web/README.md`](web/README.md).
 
 ## Validar el entorno
 
