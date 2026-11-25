@@ -188,6 +188,9 @@ En Windows con Anaconda basta con hacer doble clic en `api/arrancar_api.bat`. Si
 | `GET /historiales`, `DELETE /historiales/{persona}` | Personas subidas; borrar los datos de una persona (derecho de supresión del RGPD) y reentrenar sin ellos. Borrar o volver a subir una persona que ya existe exige su token en la cabecera `X-Token`. |
 | `POST /objetivo1/prediccion` | Tasa de no salto prevista para persona × canción × contexto (hasta 1.000 filas). El contexto se da con `franja` (0-5) y `tipo_dia`, o con `fecha_hora`. |
 | `POST /objetivo2/playlist` | Playlist del grupo en un contexto: percentil del gusto de cada miembro, mínimo del grupo y desempate por la media. Admite `n`, `duracion_min`, `excluir_artistas` y las opciones de abajo. |
+| `POST /objetivo2/cancion` | ¿Entraría una canción que **el grupo ya conoce** en esa playlist? Recibe el `track_id` y los mismos filtros que `/objetivo2/playlist`; devuelve si entra, su puesto, cuántas candidatas hay y la tasa de no salto de cada miembro (real con 5 o más escuchas, si no prevista). Es el paso 4 de la web. Para canciones que nadie ha escuchado, `/objetivo2/entraria`. |
+| `GET /canciones?buscar=...` | Buscador: canciones que alguien del grupo ha escuchado y cuyo título o artista contiene el texto (sin tildes ni mayúsculas), las más escuchadas primero, con las escuchas de cada persona. |
+| `GET /artistas` | Artistas del grupo; con `?por_persona=true`, cada uno con las escuchas de cada persona que lo tiene en su historial. |
 | `POST /objetivo2/entraria` | ¿Entraría en la playlist una canción que **nadie ha escuchado**? Basta con el `artista` (y si puedes el `album`). Para cada miembro, probabilidad de que la adopte (la vuelva a escuchar sin saltarla en 90 días) según su apertura a lo nuevo y lo que conoce del artista, en percentil frente a sus novedades de los últimos 12 meses; entra si el mínimo del grupo es 0,80 o más. Devuelve también los `huecos_novedades` de una playlist de 50. Modelo del notebook 08 (`api/novedades.py`). |
 | `GET /salud`, `/modelo`, `/personas`, `/contextos` | Estado, modelo cargado, miembros y contextos válidos. |
 
@@ -199,6 +202,8 @@ Opciones de `POST /objetivo2/playlist`:
 | `ignorar_horario` | `false` (por defecto) o `true` | No filtra por franja ni tipo de día y pone primero las canciones que conoce todo el grupo. |
 | `detalle_miembros` | `true` (por defecto) o `false` | Con `false` la respuesta no trae el gusto de cada miembro por cada canción. |
 | `desempate` | `"media"` (por defecto) o `"media_y_escuchas"` | Cómo se deshacen los empates; la segunda opción no está evaluada. |
+| `franjas` | lista de franjas seguidas, p. ej. `[5, 0]` | Varias franjas en lugar de una (con `tipo_dia`); la web las usa para «mañana», «tarde» y «noche». |
+| `excluir_canciones` | lista de `track_id` | Quita canciones concretas de la playlist (hasta 200). |
 
 ```json
 POST /objetivo2/playlist
