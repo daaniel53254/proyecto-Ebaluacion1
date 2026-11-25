@@ -76,17 +76,79 @@ class PeticionPlaylist(Contexto):
         "18_meses", description="«18_meses»: candidatas y gustos de los últimos 18 meses (regla del notebook 03). "
                                 "«completo»: todo el historial (canciones con 3 o más escuchas del grupo), gusto suavizado "
                                 "entre lo real y lo previsto, y cada miembro conoce al menos un tercio de la lista")
+    franjas: Optional[list[int]] = Field(None, min_length=1, max_length=6,
+                                         description="varias franjas seguidas en lugar de una (con tipo_dia): p. ej. "
+                                                     "[1, 2] = mañana (4-12h), [3, 4] = tarde (12-20h), [5, 0] = noche (20-4h). "
+                                                     "Se suman sus escuchas y se promedia la predicción")
     n: Optional[int] = Field(50, ge=1, le=500, description="número máximo de canciones")
     duracion_min: Optional[float] = Field(None, gt=0, le=1440, description="duración del viaje en minutos (corta la lista al llegar)")
     excluir_artistas: list[str] = Field(default_factory=list, max_length=50)
+    excluir_canciones: list[str] = Field(default_factory=list, max_length=200,
+                                         description="track_id de canciones concretas que no deben salir")
     detalle_miembros: bool = Field(True, description="false: la respuesta no trae el gusto de cada miembro por cada "
                                                      "canción (útil para enseñar la lista al grupo sin exponer gustos)")
     desempate: Literal["media", "media_y_escuchas"] = Field(
         "media", description="cómo se deshacen los empates del gusto del grupo: «media» de los percentiles (lo evaluado "
                              "en el notebook 06) o, además, por las escuchas del grupo («media_y_escuchas», sin evaluar)")
 
+    @model_validator(mode="before")
+    @classmethod
+    def franja_de_franjas(cls, datos):
+        if isinstance(datos, dict) and datos.get("franjas") and datos.get("franja") is None:
+            primera = datos["franjas"][0]
+            if isinstance(primera, int) and 0 <= primera <= 5:
+                datos = {**datos, "franja": primera}
+        return datos
+
     def necesita_contexto(self) -> bool:
         return not self.ignorar_horario
+
+    def franja_pedida(self):
+        """Lo que se pasa al servicio: None sin horario, la lista de franjas o la franja."""
+        if self.ignorar_horario:
+            return None
+        return self.franjas if self.franjas else self.franja
+
+
+class PeticionCancion(PeticionPlaylist):
+    model_config = ConfigDict(json_schema_extra={"example": {
+        "track_id": "51sjjUw21urcdtgD9HzJK6", "personas": ["ander", "daniel"], "franjas": [3, 4],
+        "tipo_dia": "fin_semana", "n": 30}})
+    track_id: str = Field(..., min_length=1, max_length=64, description="canción del catálogo (GET /canciones)")
+
+
+class GustoCancion(BaseModel):
+    tasa_no_salto: float = Field(..., description="real si tiene 5 o más escuchas en el contexto, si no la prevista (0 a 1)")
+    percentil: float
+    origen: Literal["real", "mezcla", "prevista"]
+    escuchas: int = Field(..., description="escuchas reales de esa persona con la canción en el contexto")
+
+
+class RespuestaCancion(BaseModel):
+    track_id: str
+    cancion: str
+    artista: str
+    personas: list[str]
+    franja: Optional[int]
+    franja_horas: str
+    tipo_dia: str
+    entra: bool = Field(..., description="true si con estos filtros la canción estaría en la playlist")
+    artista_excluido: bool
+    cancion_excluida: bool = Field(False, description="true si la propia canción está en excluir_canciones")
+    posicion: Optional[int] = Field(..., description="puesto en el orden de la playlist (null si su artista está quitado)")
+    n_candidatas: int
+    n_canciones_playlist: int
+    gusto_grupo: Optional[float] = Field(..., description="mínimo de los percentiles de los miembros")
+    conocida_por_todos: bool
+    miembros: dict[str, GustoCancion]
+
+
+class CancionCatalogo(BaseModel):
+    track_id: str
+    cancion: str
+    artista: str
+    duracion_s: Optional[int]
+    personas: dict[str, int] = Field(..., description="escuchas de cada persona que tiene la canción en su historial")
 
 
 class GustoMiembro(BaseModel):

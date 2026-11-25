@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+/* Identidad NPD Entertainment: los mismos valores que panel/estilo.css y panel/tema.py, leídos del logo.
+ * El blanco solo va sobre el naranja oscuro (--npd-naranja-relleno, contraste 4,85:1); el naranja del logo
+ * (--npd-naranja) marca líneas, barras, cifras y el anillo de foco. Solo hay tema oscuro: es el del logo. */
+:root {
+  --npd-negro: #040708;
+  --npd-negro-2: #0d1112;
+  --npd-negro-3: #161b1c;
+  --npd-blanco: #f4f4f2;
+  --npd-blanco-2: #c9cccb;
+  --npd-gris: #8f9594;
+  --npd-linea: #222829;
+  --npd-linea-2: #3a4243;
+  --npd-naranja: #df4e32;
+  --npd-naranja-relleno: #c8432a;
+  --npd-naranja-suave: #432621;
+  --npd-verde: #6ca67d;
+  --npd-sobre-naranja: #ffffff;
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-fondo: var(--npd-negro);
+  --color-superficie: var(--npd-negro-2);
+  --color-superficie-2: var(--npd-negro-3);
+  --color-tinta: var(--npd-blanco);
+  --color-tinta-2: var(--npd-blanco-2);
+  --color-apagado: var(--npd-gris);
+  --color-linea: var(--npd-linea);
+  --color-linea-2: var(--npd-linea-2);
+  --color-acento: var(--npd-naranja);
+  --color-acento-relleno: var(--npd-naranja-relleno);
+  --color-acento-suave: var(--npd-naranja-suave);
+  --color-sobre-acento: var(--npd-sobre-naranja);
+  --color-exito: var(--npd-verde);
+
+  --font-display: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
+
+  --text-titular: clamp(2.5rem, 1.4rem + 4.6vw, 5.25rem);
+  --text-titular--line-height: 1.02;
+  --text-seccion: clamp(1.75rem, 1.2rem + 2.2vw, 2.75rem);
+  --text-seccion--line-height: 1.1;
+
+  --tracking-titular: -0.03em;
+  --tracking-etiqueta: 0.18em;
+  --ease-salida: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-crecer: crecer 900ms var(--ease-salida) both;
+  --animate-aparecer: aparecer 700ms var(--ease-salida) both;
+
+  @keyframes crecer {
+    from {
+      transform: scaleX(0.35);
+      opacity: 0.35;
+    }
+  }
+
+  @keyframes aparecer {
+    from {
+      transform: translateY(0.75rem);
+      opacity: 0.35;
+    }
+  }
+}
+
+@layer base {
+  html {
+    background: var(--npd-negro);
+    overflow-x: clip;
+    scrollbar-color: var(--npd-linea-2) var(--npd-negro);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background: var(--npd-negro);
+    color: var(--npd-blanco);
+    overflow-x: clip;
+  }
+
+  ::selection {
+    background: var(--npd-naranja-suave);
+    color: var(--npd-blanco);
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--npd-naranja);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      animation-delay: 0ms !important;
+      transition-duration: 1ms !important;
+    }
+  }
+}

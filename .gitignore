@@ -38,3 +38,6 @@ Spotify Extended Streaming History/
 
 # --- Entorno virtual de Python ---
 .venv/
+
+# Carpeta de demo de la web (copia de data/raw + modelo generado)
+data/demo/

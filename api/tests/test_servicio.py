@@ -87,3 +87,76 @@ def test_personas_repetidas(servicio):
 def test_contexto_de_fecha():
     assert contexto_de_fecha("2026-11-28T22:30") == (5, "fin_semana")       # sábado
     assert contexto_de_fecha("2026-11-27T13:00:00Z") == (3, "laborable")     # 14:00 en Madrid
+
+
+def test_artistas_una_sola_grafia_por_nombre(servicio, monkeypatch):
+    base = servicio.catalogo.iloc[[0, 0, 0, 0]].copy()
+    base["artista"] = ["Duko", "duko", "DUKO ", "Duko"]
+    monkeypatch.setattr(servicio, "catalogo", base)
+    assert servicio.artistas() == ["Duko"]                                      # la grafía más frecuente, sin duplicar por mayúsculas
+
+
+# ---------------------------------------------------------------- web: franjas juntas, una canción y búsquedas
+def test_varias_franjas_suman_escuchas_y_promedian_la_prediccion(servicio):
+    una = [servicio.gustos(["ana"], fr, "laborable").set_index("track_id") for fr in (1, 2)]
+    juntas = servicio.gustos(["ana"], [1, 2], "laborable").set_index("track_id")
+    t = juntas.index[0]
+    assert juntas.loc[t, "escuchas_contexto"] == una[0].loc[t, "escuchas_contexto"] + una[1].loc[t, "escuchas_contexto"]
+    assert juntas.loc[t, "prevista"] == pytest.approx((una[0].loc[t, "prevista"] + una[1].loc[t, "prevista"]) / 2)
+    r = servicio.playlist(["ana", "beñat"], [5, 0], "laborable", n=5)
+    assert r["franja"] == 5 and r["franja_horas"] == "20-4h" and r["n_canciones"] == 5
+
+
+def test_franjas_no_validas(servicio):
+    with pytest.raises(ErrorEntrada):
+        servicio.playlist(["ana"], [1, 1], "laborable", n=5)
+    with pytest.raises(ErrorEntrada):
+        servicio.playlist(["ana"], [6], "laborable", n=5)
+
+
+def test_cancion_en_playlist_coincide_con_la_playlist(servicio):
+    p = servicio.playlist(["ana", "beñat"], 4, "laborable", n=10)
+    dentro, ultima = p["canciones"][0], p["canciones"][-1]
+    r = servicio.cancion_en_playlist(dentro["track_id"], ["ana", "beñat"], 4, "laborable", n=10)
+    assert r["entra"] and r["posicion"] == 1 and r["n_canciones_playlist"] == 10
+    assert r["gusto_grupo"] == pytest.approx(dentro["gusto_grupo"])
+    assert set(r["miembros"]) == {"ana", "beñat"} and all(0 <= m["tasa_no_salto"] <= 1 for m in r["miembros"].values())
+    assert servicio.cancion_en_playlist(ultima["track_id"], ["ana", "beñat"], 4, "laborable", n=10)["posicion"] == 10
+    completa = servicio.playlist(["ana", "beñat"], 4, "laborable", n=20)["canciones"]
+    fuera = servicio.cancion_en_playlist(completa[-1]["track_id"], ["ana", "beñat"], 4, "laborable", n=10)
+    assert not fuera["entra"] and fuera["posicion"] == 20
+
+
+def test_cancion_de_artista_quitado_y_desconocida(servicio):
+    c = servicio.playlist(["ana"], 4, "laborable", n=1)["canciones"][0]
+    r = servicio.cancion_en_playlist(c["track_id"], ["ana"], 4, "laborable", n=10, excluir_artistas=[c["artista"]])
+    assert r["artista_excluido"] and not r["entra"] and r["posicion"] is None
+    with pytest.raises(ErrorEntrada) as e:
+        servicio.cancion_en_playlist("no-existe", ["ana"], 4, "laborable")
+    assert e.value.codigo == 404
+
+
+def test_buscar_canciones_y_artistas_por_persona(servicio):
+    nombre = servicio.catalogo["artista"].iloc[0]
+    encontradas = servicio.buscar_canciones(nombre.upper())
+    assert encontradas and all(nombre.casefold() in (c["artista"] + c["cancion"]).casefold() for c in encontradas)
+    assert servicio.buscar_canciones("   ") == []
+    a = servicio.artistas_por_persona()
+    assert a and {x["artista"] for x in a} <= set(servicio.artistas())
+    assert all(x["personas"] and set(x["personas"]) <= {"ana", "beñat"} and min(x["personas"].values()) > 0 for x in a)
+
+
+def test_excluir_canciones_concretas(servicio):
+    antes = servicio.playlist(["ana", "beñat"], 4, "laborable", n=5)["canciones"]
+    fuera = [antes[0]["track_id"], antes[2]["track_id"]]
+    despues = servicio.playlist(["ana", "beñat"], 4, "laborable", n=5, excluir_canciones=fuera)["canciones"]
+    assert len(despues) == 5 and not {c["track_id"] for c in despues} & set(fuera)
+    r = servicio.cancion_en_playlist(fuera[0], ["ana", "beñat"], 4, "laborable", n=5, excluir_canciones=fuera)
+    assert r["cancion_excluida"] and not r["artista_excluido"] and not r["entra"] and r["posicion"] is None
+
+
+def test_buscar_canciones_dice_de_quien_son(servicio):
+    nombre = servicio.catalogo["artista"].iloc[0]
+    encontradas = servicio.buscar_canciones(nombre)
+    assert encontradas and all(c["personas"] and min(c["personas"].values()) > 0 for c in encontradas)
+    assert all(set(c["personas"]) <= {"ana", "beñat"} for c in encontradas)
