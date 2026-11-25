@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from api.servicio import ErrorEntrada, contexto_de_fecha
+from api.servicio import SUELO_SIN_HORARIO, ErrorEntrada, contexto_de_fecha
 
 
 def test_preparacion_genera_ficheros(carpeta_datos):
@@ -63,8 +63,11 @@ def test_playlist_sin_horario(servicio):
     assert r["franja"] is None and r["tipo_dia"] == "cualquiera" and r["n_canciones"] == 30
     for x in c:
         assert x["conocida_por_todos"] == all(m["origen"] == "real" for m in x["miembros"].values())
-    claves = [(x["conocida_por_todos"], x["gusto_grupo"], x["desempate"]) for x in c]
-    assert claves == sorted(claves, reverse=True)                      # primero las que conoce todo el grupo
+    sobre = [x["gusto_grupo"] >= SUELO_SIN_HORARIO for x in c]
+    assert sobre == sorted(sobre, reverse=True)                        # primero las que pasan el suelo
+    for pasa in (True, False):
+        bloque = [x["conocida_por_todos"] for x in c if (x["gusto_grupo"] >= SUELO_SIN_HORARIO) == pasa]
+        assert bloque == sorted(bloque, reverse=True)                  # y en cada bloque, las reales antes
 
 
 def test_sin_horario_usa_todas_las_escuchas(servicio):

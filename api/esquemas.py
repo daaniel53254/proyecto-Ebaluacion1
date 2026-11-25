@@ -71,7 +71,8 @@ class PeticionPlaylist(Contexto):
         "personas": ["ander", "daniel"], "fecha_hora": "2026-11-27T15:30", "n": 20}})
     personas: list[str] = Field(..., min_length=1, max_length=10, description="miembros del grupo que viajan")
     ignorar_horario: bool = Field(False, description="true: no filtra por franja ni tipo de día; usa todas las escuchas "
-                                                     "y pone primero las canciones que conoce todo el grupo")
+                                                     "(gusto real con 3 o más) y ordena primero lo que nadie tiene por debajo del "
+                                                     "percentil 0,20, luego lo real y de mayor a menor media menos dispersión")
     historial: Literal["18_meses", "completo"] = Field(
         "18_meses", description="«18_meses»: candidatas y gustos de los últimos 18 meses (regla del notebook 03). "
                                 "«completo»: todo el historial (canciones con 3 o más escuchas del grupo), gusto suavizado "
