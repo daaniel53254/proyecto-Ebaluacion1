@@ -87,12 +87,13 @@ def test_subir_historial_y_reentrenar(cliente):
     b = io.BytesIO()
     with zipfile.ZipFile(b, "w") as z:
         z.writestr("Spotify Extended Streaming History/Streaming_History_Audio_2024.json", json.dumps(filas))
-    sin_permiso = cliente.post("/historiales", data={"persona": "carla", "consentimiento": "false"},
+    sin_permiso = cliente.post("/historiales", data={"persona": "carla", "consentimiento": "false", "mayor_de_16": "true"},
                                files={"archivo": ("my_spotify_data.zip", b.getvalue(), "application/zip")})
     assert sin_permiso.status_code == 422
-    r = cliente.post("/historiales", data={"persona": "Carla", "consentimiento": "true"},
+    r = cliente.post("/historiales", data={"persona": "Carla", "consentimiento": "true", "mayor_de_16": "true"},
                      files={"archivo": ("my_spotify_data.zip", b.getvalue(), "application/zip")})
     assert r.status_code == 202, r.text
+    token = r.json()["token"]
     for _ in range(120):
         estado = cliente.get("/preparacion").json()
         if estado["estado"] != "en_curso":
@@ -102,7 +103,95 @@ def test_subir_historial_y_reentrenar(cliente):
     assert {"persona": "carla", "en_el_modelo": True}.items() <= next(h for h in cliente.get("/historiales").json() if h["persona"] == "carla").items()
     r = cliente.post("/objetivo2/playlist", json={"personas": ["ana", "carla"], "franja": 2, "tipo_dia": "laborable", "n": 5})
     assert r.status_code == 200 and r.json()["n_canciones"] == 5
-    assert cliente.post("/historiales", data={"persona": "x", "consentimiento": "true"},
+    assert cliente.post("/historiales", data={"persona": "x", "consentimiento": "true", "mayor_de_16": "true"},
                         files={"archivo": ("a.zip", b"no es un zip", "application/zip")}).status_code == 422
-    assert cliente.delete("/historiales/carla").status_code == 202
-    assert cliente.delete("/historiales/carla").status_code == 404
+    assert cliente.delete("/historiales/carla", headers={"X-Token": token}).status_code == 202
+    assert cliente.delete("/historiales/carla", headers={"X-Token": token}).status_code == 404
+    main.ESTADO["preparacion"].esperar()
+
+
+# ---------------------------------------------------------------- privacidad (anexo A.1 a A.3)
+def _zip_de(persona_origen="ana", n=None):
+    import io, json, zipfile
+    filas = []
+    for f in sorted((main.CARPETA_HISTORIAL / persona_origen).glob("Streaming_History_Audio_*.json")):
+        filas += json.loads(f.read_text(encoding="utf-8"))
+    b = io.BytesIO()
+    with zipfile.ZipFile(b, "w") as z:
+        z.writestr("Spotify Extended Streaming History/Streaming_History_Audio_2024.json", json.dumps(filas[:n]))
+    return {"archivo": ("my_spotify_data.zip", b.getvalue(), "application/zip")}
+
+
+def test_menor_de_16_no_guarda_nada(cliente):
+    r = cliente.post("/historiales", data={"persona": "menor", "consentimiento": "true", "mayor_de_16": "false"},
+                     files=_zip_de(n=200))
+    assert r.status_code == 422
+    assert r.json() == {"error": "Hace falta tener 16 años o más para usar el servicio", "detalle": None}
+    assert not (main.CARPETA_HISTORIAL / "menor").exists()
+    sin_campo = cliente.post("/historiales", data={"persona": "menor", "consentimiento": "true"}, files=_zip_de(n=200))
+    assert sin_campo.status_code == 422 and not (main.CARPETA_HISTORIAL / "menor").exists()
+
+
+def test_privacidad(cliente):
+    from api import privacidad
+    r = cliente.get("/privacidad")
+    assert r.status_code == 200
+    assert r.json()["version"] == privacidad.VERSION_TEXTO and "6.1.a" in r.json()["texto"]
+    assert "/privacidad" in cliente.get("/openapi.json").json()["paths"]["/historiales"]["post"]["description"]
+
+
+def test_consentimiento_y_token(cliente):
+    import json
+    from api import privacidad
+    r = cliente.post("/historiales", data={"persona": "dani", "consentimiento": "true", "mayor_de_16": "true"},
+                     files=_zip_de())
+    assert r.status_code == 202, r.text
+    token = r.json()["token"]
+    carpeta = main.CARPETA_HISTORIAL / "dani"
+    prueba = json.loads((carpeta / "consentimiento.json").read_text(encoding="utf-8"))
+    assert prueba["version_texto"] == privacidad.VERSION_TEXTO and prueba["mayor_de_16"] is True
+    assert "+01:00" in prueba["fecha"] or "+02:00" in prueba["fecha"]
+    assert (carpeta / ".token").read_text(encoding="utf-8") == privacidad.hash_token(token) != token
+    main.ESTADO["preparacion"].esperar()
+    assert cliente.get("/preparacion").json()["estado"] == "lista"
+    datos = {"persona": "dani", "consentimiento": "true", "mayor_de_16": "true"}
+    assert cliente.post("/historiales", data=datos, files=_zip_de()).status_code == 403                 # resubir sin token
+    assert cliente.post("/historiales", data=datos, files=_zip_de(), headers={"X-Token": "otro"}).status_code == 403
+    r = cliente.post("/historiales", data=datos, files=_zip_de(), headers={"X-Token": token})
+    assert r.status_code == 202 and "token" not in r.json()                                           # el token no cambia
+    main.ESTADO["preparacion"].esperar()
+    assert cliente.delete("/historiales/dani").status_code == 403                                     # borrar sin token
+    assert cliente.delete("/historiales/dani", headers={"X-Token": "otro"}).status_code == 403
+    assert cliente.delete("/historiales/dani", headers={"X-Token": token}).status_code == 202
+    assert not carpeta.exists()                                                                       # consentimiento incluido
+    main.ESTADO["preparacion"].esperar()
+
+
+def test_carpetas_sin_token_solo_con_administracion(cliente, monkeypatch):
+    monkeypatch.delenv("API_TOKEN_ADMIN", raising=False)
+    assert cliente.delete("/historiales/ana", headers={"X-Token": "cualquiera"}).status_code == 403
+    monkeypatch.setenv("API_TOKEN_ADMIN", "secreto-de-prueba")
+    assert cliente.delete("/historiales/ana", headers={"X-Token": "otro"}).status_code == 403
+    r = cliente.post("/historiales", data={"persona": "ana", "consentimiento": "true", "mayor_de_16": "true"},
+                     files=_zip_de("ana"), headers={"X-Token": "secreto-de-prueba"})
+    assert r.status_code == 202 and r.json()["token"]                                                 # ana recibe su token
+    assert (main.CARPETA_HISTORIAL / "ana" / ".token").exists()
+    main.ESTADO["preparacion"].esperar()
+    assert {h["persona"] for h in cliente.get("/historiales").json()} >= {"ana", "beñat"}
+
+
+# ---------------------------------------------------------------- playlist (anexo A.4 y A.9)
+def test_playlist_sin_detalle_de_miembros(cliente):
+    cuerpo = {"personas": ["ana", "beñat"], "franja": 2, "tipo_dia": "laborable", "n": 10}
+    con = cliente.post("/objetivo2/playlist", json=cuerpo).json()["canciones"]
+    sin = cliente.post("/objetivo2/playlist", json={**cuerpo, "detalle_miembros": False}).json()["canciones"]
+    assert all("miembros" in c for c in con) and not any("miembros" in c for c in sin)
+    assert [c["track_id"] for c in con] == [c["track_id"] for c in sin]
+    r = cliente.post("/objetivo2/playlist", json={"personas": ["ana"], "ignorar_horario": True, "detalle_miembros": False})
+    assert r.status_code == 200 and r.json()["franja"] is None
+
+
+def test_playlist_desempate(cliente):
+    cuerpo = {"personas": ["ana", "beñat"], "franja": 2, "tipo_dia": "laborable", "n": 10}
+    assert cliente.post("/objetivo2/playlist", json={**cuerpo, "desempate": "media_y_escuchas"}).status_code == 200
+    assert cliente.post("/objetivo2/playlist", json={**cuerpo, "desempate": "otro"}).status_code == 422

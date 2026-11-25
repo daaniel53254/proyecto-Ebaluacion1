@@ -31,8 +31,11 @@ def normalizar_persona(nombre: str) -> str:
     return p
 
 
-def guardar_zip(contenido: bytes, persona: str, carpeta_historial: Path) -> dict:
-    """Valida el zip, extrae los ficheros de audio con los campos permitidos y sustituye los anteriores de esa persona."""
+def guardar_zip(contenido: bytes, persona: str, carpeta_historial: Path, extras: dict[str, str] | None = None) -> dict:
+    """Valida el zip, extrae los ficheros de audio con los campos permitidos y sustituye los anteriores de esa persona.
+
+    extras: otros ficheros de texto que se guardan en la misma carpeta (la prueba del consentimiento y el hash del
+    token, ver api/privacidad.py). Se escriben antes de mover la carpeta, así que entran o no entran todos a la vez."""
     persona = normalizar_persona(persona)
     try:
         z = zipfile.ZipFile(io.BytesIO(contenido))
@@ -68,6 +71,8 @@ def guardar_zip(contenido: bytes, persona: str, carpeta_historial: Path) -> dict
                 json.dump(limpias, f, ensure_ascii=False)
         if escuchas == 0:
             raise ErrorHistorial("El historial está vacío")
+        for nombre, texto in (extras or {}).items():
+            (temporal / nombre).write_text(texto, encoding="utf-8")
         destino = Path(carpeta_historial) / persona
         shutil.rmtree(destino, ignore_errors=True)               # una nueva subida sustituye a la anterior
         temporal.rename(destino)
@@ -83,6 +88,11 @@ def listar(carpeta_historial: Path) -> list[dict]:
         return []
     return [{"persona": p.name, "ficheros": len(list(p.glob("**/Streaming_History_Audio_*.json")))}
             for p in sorted(carpeta.iterdir()) if p.is_dir() and not p.name.startswith((".", "persona="))]
+
+
+def carpeta_de(persona: str, carpeta_historial: Path) -> Path:
+    """Carpeta del historial de una persona (exista o no)."""
+    return Path(carpeta_historial) / normalizar_persona(persona)
 
 
 def borrar(persona: str, carpeta_historial: Path) -> bool:

@@ -79,6 +79,11 @@ class PeticionPlaylist(Contexto):
     n: Optional[int] = Field(50, ge=1, le=500, description="número máximo de canciones")
     duracion_min: Optional[float] = Field(None, gt=0, le=1440, description="duración del viaje en minutos (corta la lista al llegar)")
     excluir_artistas: list[str] = Field(default_factory=list, max_length=50)
+    detalle_miembros: bool = Field(True, description="false: la respuesta no trae el gusto de cada miembro por cada "
+                                                     "canción (útil para enseñar la lista al grupo sin exponer gustos)")
+    desempate: Literal["media", "media_y_escuchas"] = Field(
+        "media", description="cómo se deshacen los empates del gusto del grupo: «media» de los percentiles (lo evaluado "
+                             "en el notebook 06) o, además, por las escuchas del grupo («media_y_escuchas», sin evaluar)")
 
     def necesita_contexto(self) -> bool:
         return not self.ignorar_horario
@@ -100,7 +105,7 @@ class CancionPlaylist(BaseModel):
     gusto_grupo: float = Field(..., description="mínimo de los percentiles de los miembros")
     desempate: float = Field(..., description="media de los percentiles")
     conocida_por_todos: bool = Field(..., description="todos los miembros tienen gusto real (5 o más escuchas), sin predicción")
-    miembros: dict[str, GustoMiembro]
+    miembros: Optional[dict[str, GustoMiembro]] = Field(None, description="no aparece con detalle_miembros=false")
 
 
 class RespuestaPlaylist(BaseModel):

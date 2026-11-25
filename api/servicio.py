@@ -239,14 +239,20 @@ class Servicio:
         return g.loc[final]
 
     def playlist(self, personas: list[str], franja: int | None, tipo_dia: str | None, n: int | None = 50,
-                 duracion_min: float | None = None, excluir_artistas=(), historial: str = "18_meses") -> dict:
+                 duracion_min: float | None = None, excluir_artistas=(), historial: str = "18_meses",
+                 detalle_miembros: bool = True, desempate: str = "media") -> dict:
         """Playlist del grupo: mínimo de los percentiles de los miembros, desempate por la media.
 
         Sin horario (franja y tipo_dia a None) van primero las canciones con gusto real de todos los
         miembros y después las que dependen de alguna predicción.
 
         Con historial="completo" se usa todo el historial (ver gustos) y, además, un reparto mínimo: cada miembro
-        conoce al menos un tercio de las canciones de cualquier tramo inicial de la lista."""
+        conoce al menos un tercio de las canciones de cualquier tramo inicial de la lista.
+
+        detalle_miembros=False quita de la respuesta el gusto de cada miembro. desempate="media_y_escuchas" deshace los
+        empates que queden tras la media con las escuchas del grupo (no está evaluado: el valor por defecto es «media»)."""
+        if desempate not in ("media", "media_y_escuchas"):
+            raise ErrorEntrada("desempate debe ser «media» o «media_y_escuchas»")
         if len(set(personas)) != len(personas):
             raise ErrorEntrada("Hay personas repetidas en el grupo")
         sin_horario = franja is None
@@ -255,11 +261,13 @@ class Servicio:
         f["es_real"] = f["origen"].eq("real")
         g = (f.groupby("track_id")
               .agg(gusto_grupo=("percentil", "min"), desempate=("percentil", "mean"), conocida_por_todos=("es_real", "all"))
-              .join(catalogo[["cancion", "artista", "duracion_s"]]))
+              .join(catalogo[["cancion", "artista", "duracion_s", "escuchas_grupo"]]))
         if excluir_artistas:
             fuera = {a.casefold() for a in excluir_artistas}
             g = g[~g["artista"].str.casefold().isin(fuera)]
         orden = (["conocida_por_todos"] if sin_horario else []) + ["gusto_grupo", "desempate"]
+        if desempate == "media_y_escuchas":
+            orden.append("escuchas_grupo")
         g = g.sort_values(orden, ascending=False)
         if historial == "completo" and len(personas) > 1:
             g = self._reparto(g, f.pivot(index="track_id", columns="persona", values="conoce").reindex(g.index).fillna(False),
@@ -279,7 +287,9 @@ class Servicio:
                               "duracion_s": None if pd.isna(r["duracion_s"]) else int(r["duracion_s"]),
                               "gusto_grupo": round(float(r["gusto_grupo"]), 4),
                               "desempate": round(float(r["desempate"]), 4),
-                              "conocida_por_todos": bool(r["conocida_por_todos"]), "miembros": miembros})
+                              "conocida_por_todos": bool(r["conocida_por_todos"])})
+            if detalle_miembros:
+                canciones[-1]["miembros"] = miembros
         total = sum(c["duracion_s"] or 0 for c in canciones)
         regla = "percentil del gusto de cada miembro; gusto del grupo = mínimo; empates por la media"
         if historial == "completo":

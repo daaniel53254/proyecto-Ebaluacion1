@@ -13,12 +13,12 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi import FastAPI, File, Form, Header, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from api.esquemas import Error, PeticionPlaylist, PeticionPrediccion, RespuestaPlaylist, RespuestaPrediccion
-from api import historiales
+from api import historiales, privacidad
 from api.caracteristicas import carpeta_historial_por_defecto
 from api.preparacion import Preparacion
 from api.servicio import NOMBRES_FRANJA, ErrorEntrada, Servicio
@@ -66,12 +66,17 @@ app = FastAPI(
         "candidatas salen de todo el historial (3 o más escuchas del grupo), el gusto mezcla lo real con lo previsto "
         "((no saltos + 5 × prevista) / (escuchas + 5)) y cada miembro conoce al menos un tercio de la lista; por defecto, "
         "`\"18_meses\"`. Con `\"ignorar_horario\": true` no se filtra por franja ni tipo de día.\n\n"
+        "**Privacidad** · `GET /privacidad`: texto que acepta cada persona al subir su historial. Hace falta tener 16 años "
+        "o más. Al subir un historial nuevo se devuelve un token (una sola vez): hay que enviarlo en la cabecera `X-Token` "
+        "para borrar o sustituir ese historial.\n\n"
         "Los errores devuelven siempre `{\"error\": ..., \"detalle\": ...}`."),
     lifespan=ciclo_de_vida,
-    openapi_tags=[{"name": "historiales"}, {"name": "información"}, {"name": "objetivo 1"}, {"name": "objetivo 2"}],
+    openapi_tags=[{"name": "historiales"}, {"name": "privacidad"}, {"name": "información"}, {"name": "objetivo 1"},
+                  {"name": "objetivo 2"}],
 )
 
-RESPUESTAS_ERROR = {404: {"model": Error, "description": "persona o canción desconocidas"},
+RESPUESTAS_ERROR = {403: {"model": Error, "description": "falta el token X-Token de esa persona o no coincide"},
+                    404: {"model": Error, "description": "persona o canción desconocidas"},
                     422: {"model": Error, "description": "entrada no válida"},
                     503: {"model": Error, "description": "el modelo no está cargado"}}
 
@@ -111,7 +116,7 @@ async def _error_interno(request: Request, e: Exception):
 @app.get("/", tags=["información"])
 def inicio():
     return {"proyecto": "Playlist perfecta para viajes en grupo", "documentacion": "/docs",
-            "endpoints": ["/historiales", "/preparacion", "/salud", "/modelo", "/personas", "/contextos",
+            "endpoints": ["/historiales", "/privacidad", "/preparacion", "/salud", "/modelo", "/personas", "/contextos",
                           "/objetivo1/prediccion", "/objetivo2/playlist"]}
 
 
@@ -122,27 +127,64 @@ def salud():
             "preparacion": ESTADO["preparacion"].estado if ESTADO["preparacion"] else None}
 
 
+@app.get("/privacidad", tags=["privacidad"])
+def ver_privacidad():
+    """Texto completo que acepta cada persona al subir su historial (versión, finalidad, datos, derechos y edad mínima)."""
+    return {"version": privacidad.VERSION_TEXTO, "texto": privacidad.TEXTO_CONSENTIMIENTO,
+            "edad_minima": privacidad.EDAD_MINIMA}
+
+
+def _comprobar_token(carpeta: Path, x_token: str | None):
+    if not privacidad.token_valido(carpeta, x_token):
+        raise ErrorEntrada("Hace falta el token de esa persona en la cabecera X-Token (se dio al subir el historial)", 403)
+
+
 @app.post("/historiales", tags=["historiales"], status_code=202, responses=RESPUESTAS_ERROR)
 async def subir_historial(
         persona: str = Form(..., description="nombre con el que aparecerá en el grupo (p. ej. «ander»)"),
-        consentimiento: bool = Form(..., description="acepto que se use mi historial para generar las playlists del grupo"),
-        archivo: UploadFile = File(..., description="el .zip que envía Spotify (Extended streaming history)")):
+        consentimiento: bool = Form(..., description="acepto que se use mi historial para generar las playlists del "
+                                                     "grupo (texto completo en GET /privacidad)"),
+        mayor_de_16: bool = Form(..., description="confirmo que tengo 16 años o más"),
+        archivo: UploadFile = File(..., description="el .zip que envía Spotify (Extended streaming history)"),
+        x_token: str | None = Header(None, alias="X-Token", description="solo para sustituir un historial que ya existe")):
     """Sube el historial de una persona y reentrena el modelo con todos los historiales en segundo plano.
 
+    Tu historial solo se usa para generar las playlists del grupo y se guarda sin IP ni país. Puedes borrarlo cuando
+    quieras. Más información en GET /privacidad.
+
     Solo se guardan los ficheros Streaming_History_Audio_*.json y, de ellos, los campos de escucha (canción,
-    artista, álbum, fecha, duración escuchada, cómo terminó y modo aleatorio). Una nueva subida de la misma
-    persona sustituye a la anterior."""
+    artista, álbum, fecha, duración escuchada, cómo terminó y modo aleatorio), más la prueba del consentimiento.
+    Si la persona es nueva, la respuesta trae su token una sola vez. Una nueva subida de la misma persona
+    sustituye a la anterior y exige su token en la cabecera X-Token."""
+    if not mayor_de_16:
+        raise ErrorEntrada("Hace falta tener 16 años o más para usar el servicio", 422)
     if not consentimiento:
         raise ErrorEntrada("Hace falta el consentimiento para usar el historial", 422)
     if archivo.filename and not archivo.filename.lower().endswith(".zip"):
         raise ErrorEntrada("Sube el .zip tal como lo envía Spotify", 422)
+    nombre = historiales.normalizar_persona(persona)
+    carpeta = historiales.carpeta_de(nombre, CARPETA_HISTORIAL)
+    token = None
+    if carpeta.is_dir():
+        _comprobar_token(carpeta, x_token)
+        hash_token = privacidad.hash_guardado(carpeta)
+    else:
+        hash_token = None
+    if hash_token is None:                          # persona nueva, o carpeta antigua sustituida con el token de administración
+        token, hash_token = privacidad.nuevo_token()
     contenido = await archivo.read(MAX_SUBIDA + 1)
     if len(contenido) > MAX_SUBIDA:
         raise ErrorEntrada("El fichero supera los 400 MB", 413)
-    resumen = historiales.guardar_zip(contenido, persona, CARPETA_HISTORIAL)
+    resumen = historiales.guardar_zip(contenido, nombre, CARPETA_HISTORIAL,
+                                      extras=privacidad.ficheros_extra(nombre, mayor_de_16, hash_token))
     prep = ESTADO["preparacion"].lanzar(f"subida de {resumen['persona']}")
-    return {"historial": resumen, "preparacion": prep,
-            "siguiente": "consulta GET /preparacion; cuando diga «lista», la persona ya está en el modelo"}
+    respuesta = {"historial": resumen, "preparacion": prep,
+                 "siguiente": "consulta GET /preparacion; cuando diga «lista», la persona ya está en el modelo"}
+    if token:
+        respuesta["token"] = token
+        respuesta["aviso_token"] = ("Guarda este token: solo se muestra ahora y hace falta (cabecera X-Token) para "
+                                    "borrar o sustituir tu historial")
+    return respuesta
 
 
 @app.get("/historiales", tags=["historiales"])
@@ -153,10 +195,16 @@ def ver_historiales():
 
 
 @app.delete("/historiales/{persona}", tags=["historiales"], status_code=202, responses=RESPUESTAS_ERROR)
-def borrar_historial(persona: str):
-    """Borra el historial de una persona (derecho de supresión, art. 17 del RGPD) y reentrena sin sus datos."""
-    if not historiales.borrar(persona, CARPETA_HISTORIAL):
+def borrar_historial(persona: str, x_token: str | None = Header(None, alias="X-Token",
+                                                                 description="token que se dio al subir el historial")):
+    """Borra el historial de una persona (derecho de supresión, art. 17 del RGPD) y reentrena sin sus datos.
+
+    Exige el token de esa persona en la cabecera X-Token (o el de administración, API_TOKEN_ADMIN)."""
+    carpeta = historiales.carpeta_de(persona, CARPETA_HISTORIAL)
+    if not carpeta.is_dir():
         raise ErrorEntrada(f"No hay historial de «{persona}»", 404)
+    _comprobar_token(carpeta, x_token)
+    historiales.borrar(persona, CARPETA_HISTORIAL)
     if not historiales.listar(CARPETA_HISTORIAL):
         ESTADO["servicio"] = None
         import shutil
@@ -204,8 +252,10 @@ def prediccion(peticion: PeticionPrediccion):
     return {"modelo": s.origen_modelo, "predicciones": s.predecir(filas)}
 
 
-@app.post("/objetivo2/playlist", tags=["objetivo 2"], response_model=RespuestaPlaylist, responses=RESPUESTAS_ERROR)
+@app.post("/objetivo2/playlist", tags=["objetivo 2"], response_model=RespuestaPlaylist, responses=RESPUESTAS_ERROR,
+          response_model_exclude_unset=True)
 def playlist(peticion: PeticionPlaylist):
     """Playlist para el grupo en un contexto, ordenada por el gusto del grupo (mínimo de percentiles)."""
     return servicio().playlist(peticion.personas, peticion.franja, peticion.tipo_dia, peticion.n,
-                               peticion.duracion_min, peticion.excluir_artistas, peticion.historial)
+                               peticion.duracion_min, peticion.excluir_artistas, peticion.historial,
+                               detalle_miembros=peticion.detalle_miembros, desempate=peticion.desempate)
