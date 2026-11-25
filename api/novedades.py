@@ -12,6 +12,8 @@ ocupan como mucho round(50 × apertura del miembro menos abierto) huecos, entre 
 
 Las funciones son las del notebook 08: si se cambia algo aquí, hay que cambiarlo también allí.
 """
+import unicodedata
+
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import HistGradientBoostingClassifier
@@ -204,6 +206,26 @@ def entrenar(h: pd.DataFrame) -> dict:
 
 
 # ----------------------------------------------------------------- consulta
+def _clave(texto) -> str:
+    """Minúsculas, sin tildes y con los espacios juntos: «Rosalía», «ROSALIA» y « rosalía » dan la misma clave."""
+    sin_tildes = "".join(c for c in unicodedata.normalize("NFD", str(texto).casefold()) if unicodedata.category(c) != "Mn")
+    return " ".join(sin_tildes.split())
+
+
+def con_grafia_del_historial(T: dict, canciones: pd.DataFrame) -> pd.DataFrame:
+    """Cambia el artista y el álbum pedidos por como aparecen en los historiales, sin que importen mayúsculas,
+    tildes ni espacios. Si no aparecen, se dejan como vienen (artista o álbum desconocido para el grupo)."""
+    out = canciones.copy()
+    tot = T["tot"].sort_values("tot_n", kind="stable")            # la grafía más escuchada queda la última y gana
+    artistas = tot["artista"].astype(str)
+    por_clave = dict(zip(artistas.map(_clave), artistas))
+    out["artista"] = [por_clave.get(_clave(a), a) for a in out["artista"]]
+    albumes = T["alb"][["artista", "album"]].drop_duplicates().astype(str)
+    por_clave_album = {(a, _clave(al)): al for a, al in zip(albumes["artista"], albumes["album"])}
+    out["album"] = [por_clave_album.get((a, _clave(al)), al) for a, al in zip(out["artista"], out["album"])]
+    return out
+
+
 def huecos(apertura: dict, personas: list[str], n_lista: int = N_LISTA) -> int:
     a = min(apertura.get(p, np.nan) for p in personas)
     return HUECOS_MIN if np.isnan(a) else int(np.clip(round(n_lista * a), HUECOS_MIN, HUECOS_MAX))
@@ -216,7 +238,7 @@ def evaluar(paquete: dict, personas: list[str], canciones: pd.DataFrame, franja=
     horario, como media de los 12 contextos."""
     momento = paquete["fin"] + pd.Timedelta(seconds=1)
     ctx = CONTEXTOS if franja is None else [(int(franja), tipo_dia)]
-    out = canciones.reset_index(drop=True).copy()
+    out = con_grafia_del_historial(paquete["tablas"], canciones.reset_index(drop=True))
     for p in personas:
         q = out[["track_id", "artista", "album"]].assign(persona=p, hora_local=momento)[COLS_CONSULTA]
         f = variables(q, paquete["tablas"]).assign(shuffle=True)
