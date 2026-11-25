@@ -50,6 +50,8 @@ export type ResumenSubida = {
 export type RespuestaSubida = {
   historial: ResumenSubida;
   preparacion: EstadoPreparacion;
+  // Solo la primera vez que sube una persona: hace falta para borrar o sustituir su historial.
+  token?: string;
 };
 
 export type Persona = {

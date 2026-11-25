@@ -22,8 +22,8 @@ export const PanelSubida: FC = () => {
     void seguir(respuesta.preparacion, { tipo: "subida", subida: respuesta.historial });
   };
 
-  const alBorrar = async (persona: string) => {
-    const preparacion = await lista.borrar(persona);
+  const alBorrar = async (persona: string, token: string | null) => {
+    const preparacion = await lista.borrar(persona, token);
     if (preparacion !== null) void seguir(preparacion, { tipo: "borrado", persona });
   };
 
@@ -40,7 +40,7 @@ export const PanelSubida: FC = () => {
           error={lista.error}
           entrenando={entrenando}
           borrando={lista.borrando}
-          alBorrar={(persona) => void alBorrar(persona)}
+          alBorrar={(persona, token) => void alBorrar(persona, token)}
         />
       </div>
     </div>

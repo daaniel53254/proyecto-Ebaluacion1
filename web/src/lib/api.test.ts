@@ -53,7 +53,9 @@ describe("cliente de la API", () => {
   it("lanza ErrorApi con el mensaje de la API", async () => {
     mockFetch(422, { error: "Hace falta el consentimiento para usar el historial", detalle: null });
 
-    await expect(subirHistorial("ana", false, new Blob())).rejects.toMatchObject({
+    await expect(
+      subirHistorial({ persona: "ana", consentimiento: false, mayorDe16: true, zip: new Blob(), token: null }),
+    ).rejects.toMatchObject({
       codigo: 422,
       message: "Hace falta el consentimiento para usar el historial",
     });
@@ -86,13 +88,13 @@ describe("cliente de la API", () => {
     expect(JSON.parse(String(opciones?.body))).toEqual(peticion);
   });
 
-  it("subirHistorial envía persona, consentimiento y el zip como historial.zip", async () => {
+  it("subirHistorial envía persona, consentimiento, mayor_de_16 y el zip, sin X-Token", async () => {
     const fetchFalso = mockFetch(202, {
       historial: { persona: "ana", ficheros: 1, escuchas: 10, desde: "2024-01-01", hasta: "2024-02-01" },
       preparacion: PREPARACION_EN_CURSO,
     });
 
-    await subirHistorial("ana", true, new Blob(["zip"]));
+    await subirHistorial({ persona: "ana", consentimiento: true, mayorDe16: true, zip: new Blob(["zip"]), token: null });
 
     const { url, opciones } = llamadaDe(fetchFalso);
     expect(url).toBe("http://127.0.0.1:8000/historiales");
@@ -102,27 +104,46 @@ describe("cliente de la API", () => {
     if (!(formulario instanceof FormData)) return;
     expect(formulario.get("persona")).toBe("ana");
     expect(formulario.get("consentimiento")).toBe("true");
+    expect(formulario.get("mayor_de_16")).toBe("true");
+    expect(opciones?.headers).toBeUndefined();
     const archivo = formulario.get("archivo");
     expect(archivo).toBeInstanceOf(File);
     if (!(archivo instanceof File)) return;
     expect(archivo.name).toBe("historial.zip");
   });
 
-  it("borrarHistorial usa DELETE con el nombre codificado", async () => {
+  it("subirHistorial manda el token en X-Token al sustituir un historial", async () => {
+    const fetchFalso = mockFetch(202, { historial: { persona: "ana", ficheros: 1, escuchas: 10, desde: "2024-01-01", hasta: "2024-02-01" }, preparacion: PREPARACION_EN_CURSO });
+
+    await subirHistorial({ persona: "ana", consentimiento: true, mayorDe16: true, zip: new Blob(), token: "secreto" });
+
+    expect(llamadaDe(fetchFalso).opciones?.headers).toEqual({ "X-Token": "secreto" });
+  });
+
+  it("subirHistorial devuelve el token de una persona nueva", async () => {
+    mockFetch(202, { historial: { persona: "ana", ficheros: 1, escuchas: 10, desde: "2024-01-01", hasta: "2024-02-01" }, preparacion: PREPARACION_EN_CURSO, token: "nuevo" });
+
+    const respuesta = await subirHistorial({ persona: "ana", consentimiento: true, mayorDe16: true, zip: new Blob(), token: null });
+
+    expect(respuesta.token).toBe("nuevo");
+  });
+
+  it("borrarHistorial usa DELETE con el nombre codificado y el token en X-Token", async () => {
     const fetchFalso = mockFetch(202, { borrado: "ana", preparacion: PREPARACION_EN_CURSO });
 
-    const preparacion = await borrarHistorial("ana");
+    const preparacion = await borrarHistorial("ana", "secreto");
 
     const { url, opciones } = llamadaDe(fetchFalso);
     expect(url).toBe("http://127.0.0.1:8000/historiales/ana");
     expect(opciones?.method).toBe("DELETE");
+    expect(opciones?.headers).toEqual({ "X-Token": "secreto" });
     expect(preparacion?.estado).toBe("en_curso");
   });
 
   it("borrarHistorial devuelve null si ya no queda nadie y el modelo se retira", async () => {
     mockFetch(202, { borrado: "ana", preparacion: "no quedan historiales: el modelo se ha retirado" });
 
-    expect(await borrarHistorial("ana")).toBeNull();
+    expect(await borrarHistorial("ana", "secreto")).toBeNull();
   });
 
   it("lanza ErrorApi si la respuesta no tiene la forma esperada", async () => {

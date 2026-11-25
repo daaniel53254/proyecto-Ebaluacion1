@@ -95,5 +95,6 @@ Hace falta solo para «Crear en mi Spotify». Generar la playlist y copiar los e
 ## Límites conocidos
 
 - Hay que abrir la web como `http://127.0.0.1:3000`, no como `localhost`.
-- No hay cuentas ni autenticación: cualquiera que abra la web puede subir o borrar historiales.
+- No hay cuentas. Para subir hay que marcar que se tienen 16 años o más y aceptar el consentimiento. La primera vez que alguien sube su historial, la API devuelve un token. La web lo enseña una vez y lo guarda en ese navegador (`localStorage`). Para borrar o sustituir ese historial hay que enviarlo en la cabecera `X-Token`: desde otro navegador, la web pide pegarlo.
+- Los historiales copiados a `data/demo` desde `data/raw` (daniel y ander) no tienen token. Solo se pueden borrar o sustituir con el token de administración (`API_TOKEN_ADMIN` en la API). Si no, se vuelve a empezar con `arrancar_web.bat reiniciar`.
 - Es solo para la demo local: la API y la web se sirven en `127.0.0.1` y los datos viven en `data/demo`.

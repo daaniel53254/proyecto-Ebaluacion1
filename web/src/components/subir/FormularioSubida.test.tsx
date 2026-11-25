@@ -42,6 +42,7 @@ const campoArchivos = () => screen.getByLabelText(/elige el \.zip/i);
 
 const rellenarTodo = async (usuario: ReturnType<typeof userEvent.setup>) => {
   await usuario.type(screen.getByLabelText("Tu nombre"), "ana");
+  await usuario.click(screen.getByLabelText("Tengo 16 años o más."));
   await usuario.click(screen.getByLabelText("Acepto que se use mi historial para generar las playlists del grupo."));
   await usuario.upload(campoArchivos(), await zipDeSpotify());
   await screen.findByText("Se suben 1 fichero · Se descartan 1");
@@ -51,6 +52,7 @@ describe("FormularioSubida", () => {
   afterEach(cleanup);
 
   beforeEach(() => {
+    window.localStorage.clear();
     vi.mocked(subirHistorial).mockResolvedValue(RESPUESTA);
   });
 
@@ -59,6 +61,7 @@ describe("FormularioSubida", () => {
     expect(botonSubir()).toBeDisabled();
 
     await usuario.type(screen.getByLabelText("Tu nombre"), "á");
+    await usuario.click(screen.getByLabelText("Tengo 16 años o más."));
     await usuario.click(screen.getByLabelText("Acepto que se use mi historial para generar las playlists del grupo."));
     await usuario.upload(campoArchivos(), await zipDeSpotify());
     await screen.findByText("Se suben 1 fichero · Se descartan 1");
@@ -70,6 +73,41 @@ describe("FormularioSubida", () => {
 
     await usuario.click(screen.getByLabelText("Acepto que se use mi historial para generar las playlists del grupo."));
     expect(botonSubir()).toBeDisabled();
+  });
+
+  it("no deja subir sin marcar que tiene 16 años o más", async () => {
+    const { usuario } = pintar();
+    await rellenarTodo(usuario);
+    expect(botonSubir()).toBeEnabled();
+    await usuario.click(screen.getByLabelText("Tengo 16 años o más."));
+    expect(botonSubir()).toBeDisabled();
+  });
+
+  it("guarda el token de una persona nueva y lo enseña una vez", async () => {
+    vi.mocked(subirHistorial).mockResolvedValueOnce({ ...RESPUESTA, token: "tok-123" });
+    const { usuario } = pintar();
+    await rellenarTodo(usuario);
+    await usuario.click(botonSubir());
+    expect(await screen.findByText("tok-123")).toBeInTheDocument();
+    expect(window.localStorage.getItem("npd-token:ana")).toBe("tok-123");
+  });
+
+  it("al sustituir un historial pide el token si no está guardado y lo envía", async () => {
+    const { usuario } = pintar([{ persona: "ana", ficheros: 3, en_el_modelo: true }]);
+    await rellenarTodo(usuario);
+    expect(botonSubir()).toBeDisabled();
+    await usuario.type(screen.getByLabelText("Token de «ana»"), "tok-escrito");
+    await usuario.click(botonSubir());
+    expect(subirHistorial).toHaveBeenCalledWith(expect.objectContaining({ persona: "ana", token: "tok-escrito" }));
+  });
+
+  it("al sustituir un historial usa el token guardado sin pedirlo", async () => {
+    window.localStorage.setItem("npd-token:ana", "tok-guardado");
+    const { usuario } = pintar([{ persona: "ana", ficheros: 3, en_el_modelo: true }]);
+    await rellenarTodo(usuario);
+    expect(screen.queryByLabelText("Token de «ana»")).not.toBeInTheDocument();
+    await usuario.click(botonSubir());
+    expect(subirHistorial).toHaveBeenCalledWith(expect.objectContaining({ token: "tok-guardado" }));
   });
 
   it("resume lo que se sube y lo que se descarta", async () => {
@@ -89,6 +127,7 @@ describe("FormularioSubida", () => {
     vi.mocked(prepararHistorial).mockImplementationOnce(() => new Promise(() => {}));
     const { usuario } = pintar();
     await usuario.type(screen.getByLabelText("Tu nombre"), "ana");
+    await usuario.click(screen.getByLabelText("Tengo 16 años o más."));
     await usuario.click(screen.getByLabelText("Acepto que se use mi historial para generar las playlists del grupo."));
     await usuario.upload(campoArchivos(), await zipDeSpotify());
     expect(await screen.findByText("Preparando ficheros…")).toBeInTheDocument();
@@ -106,7 +145,13 @@ describe("FormularioSubida", () => {
     const { usuario, alSubir } = pintar();
     await rellenarTodo(usuario);
     await usuario.click(botonSubir());
-    expect(subirHistorial).toHaveBeenCalledWith("ana", true, expect.any(Blob));
+    expect(subirHistorial).toHaveBeenCalledWith({
+      persona: "ana",
+      consentimiento: true,
+      mayorDe16: true,
+      zip: expect.any(Blob),
+      token: null,
+    });
     expect(alSubir).toHaveBeenCalledWith(RESPUESTA);
   });
 

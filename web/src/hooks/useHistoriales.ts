@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { borrarHistorial, ErrorApi, obtenerHistoriales } from "@/lib/api";
 import type { EstadoPreparacion, Historial } from "@/lib/tipos";
+import { olvidarToken } from "@/lib/tokens";
 
 const MENSAJE_FALLO = "No se pudo hablar con la API";
 
@@ -34,19 +35,21 @@ export const useHistoriales = () => {
   }, [recargar]);
 
   // Devuelve el reentreno lanzado (o null si no se lanzó ninguno) para que la página lo siga.
-  const borrar = async (persona: string): Promise<EstadoPreparacion | null> => {
+  // El error del borrado se pone después de recargar la lista, que si va bien deja el error en blanco.
+  const borrar = async (persona: string, token: string | null): Promise<EstadoPreparacion | null> => {
     setBorrando(persona);
+    let preparacion: EstadoPreparacion | null = null;
+    let errorBorrado: string | null = null;
     try {
-      const preparacion = await borrarHistorial(persona);
-      setError(null);
-      return preparacion;
+      preparacion = await borrarHistorial(persona, token);
+      olvidarToken(persona);
     } catch (fallo: unknown) {
-      setError(mensajeDe(fallo));
-      return null;
-    } finally {
-      setBorrando(null);
-      await recargar();
+      errorBorrado = mensajeDe(fallo);
     }
+    setBorrando(null);
+    await recargar();
+    if (errorBorrado !== null) setError(errorBorrado);
+    return preparacion;
   };
 
   return { historiales, cargando, error, borrando, recargar, borrar };

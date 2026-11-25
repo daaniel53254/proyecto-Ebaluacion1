@@ -92,7 +92,8 @@ const esResumenSubida = (valor: unknown): valor is ResumenSubida => {
 
 export const esRespuestaSubida: Comprobacion<RespuestaSubida> = (valor): valor is RespuestaSubida => {
   if (!esObjeto(valor)) return false;
-  return esResumenSubida(valor.historial) && esEstadoPreparacion(valor.preparacion);
+  const tokenValido = valor.token === undefined || typeof valor.token === "string";
+  return esResumenSubida(valor.historial) && esEstadoPreparacion(valor.preparacion) && tokenValido;
 };
 
 const esNumeroONulo = (valor: unknown): valor is number | null => {

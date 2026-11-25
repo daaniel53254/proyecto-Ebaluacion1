@@ -6,6 +6,7 @@ import { boton, tarjeta } from "@/components/ui/estilos";
 import { Etiqueta } from "@/components/ui/Etiqueta";
 import { cn } from "@/lib/cn";
 import type { Historial } from "@/lib/tipos";
+import { leerToken } from "@/lib/tokens";
 
 type ListaPersonasProps = {
   historiales: Historial[];
@@ -13,7 +14,7 @@ type ListaPersonasProps = {
   error: string | null;
   entrenando: boolean;
   borrando: string | null;
-  alBorrar: (persona: string) => void;
+  alBorrar: (persona: string, token: string | null) => void;
 };
 
 const TEXTO_CONFIRMACION = "Se borra tu historial y se vuelve a entrenar sin él. No se puede deshacer.";
@@ -30,12 +31,17 @@ type FilaPersonaProps = {
   confirmando: boolean;
   alPedirBorrado: () => void;
   alCancelar: () => void;
-  alConfirmar: () => void;
+  alConfirmar: (token: string | null) => void;
 };
 
 const FilaPersona: FC<FilaPersonaProps> = (props) => {
   const { historial, entrenando, borrando, confirmando } = props;
   const idConfirmacion = `confirmar-${historial.persona}`;
+  const idToken = `token-${historial.persona}`;
+  const [tokenEscrito, setTokenEscrito] = useState("");
+  // Sin token en este navegador hay que pegarlo: la API no deja borrar sin él.
+  const tokenGuardado = confirmando ? leerToken(historial.persona) : null;
+  const token = tokenGuardado ?? (tokenEscrito.trim() || null);
   return (
     <li className="flex flex-col gap-3 border-t border-linea py-4 first:border-t-0">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -66,11 +72,28 @@ const FilaPersona: FC<FilaPersonaProps> = (props) => {
           <p id={idConfirmacion} className="text-sm">
             {TEXTO_CONFIRMACION}
           </p>
+          {tokenGuardado === null && (
+            <div className="flex flex-col gap-2">
+              <label htmlFor={idToken} className="text-sm font-semibold">
+                Token de «{historial.persona}»
+              </label>
+              <input
+                id={idToken}
+                autoComplete="off"
+                spellCheck={false}
+                value={tokenEscrito}
+                onChange={(evento) => setTokenEscrito(evento.target.value)}
+                className="min-h-10 rounded-xl border border-linea-2 bg-fondo px-3 font-mono text-sm text-tinta"
+              />
+              <p className="text-xs text-apagado">El que te dio la web al subir tu historial.</p>
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={props.alConfirmar}
-              className={boton({ intencion: "secundario", class: "min-h-10 border-acento px-4" })}
+              onClick={() => props.alConfirmar(token)}
+              disabled={token === null}
+              className={boton({ intencion: "secundario", class: "min-h-10 border-acento px-4 disabled:opacity-50" })}
             >
               Sí, borrar a «{historial.persona}»
             </button>
@@ -109,9 +132,9 @@ const Contenido: FC<ContenidoProps> = ({ historiales, cargando, entrenando, borr
             confirmando={confirmando === historial.persona}
             alPedirBorrado={() => setConfirmando(historial.persona)}
             alCancelar={() => setConfirmando(null)}
-            alConfirmar={() => {
+            alConfirmar={(token) => {
               setConfirmando(null);
-              alBorrar(historial.persona);
+              alBorrar(historial.persona, token);
             }}
           />
         );

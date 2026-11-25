@@ -89,17 +89,34 @@ export const obtenerPreparacion = (): Promise<EstadoPreparacion> => {
   return pedir("/preparacion", esEstadoPreparacion);
 };
 
-export const subirHistorial = (persona: string, consentimiento: boolean, zip: Blob): Promise<RespuestaSubida> => {
+export type Subida = {
+  persona: string;
+  consentimiento: boolean;
+  mayorDe16: boolean;
+  zip: Blob;
+  // Solo para sustituir un historial que ya existe.
+  token: string | null;
+};
+
+const cabeceraToken = (token: string | null): HeadersInit | undefined => {
+  return token === null ? undefined : { "X-Token": token };
+};
+
+export const subirHistorial = ({ persona, consentimiento, mayorDe16, zip, token }: Subida): Promise<RespuestaSubida> => {
   const formulario = new FormData();
   formulario.append("persona", persona);
   formulario.append("consentimiento", String(consentimiento));
+  formulario.append("mayor_de_16", String(mayorDe16));
   formulario.append("archivo", zip, "historial.zip");
-  return pedir("/historiales", esRespuestaSubida, { method: "POST", body: formulario });
+  return pedir("/historiales", esRespuestaSubida, { method: "POST", body: formulario, headers: cabeceraToken(token) });
 };
 
 // Devuelve el reentreno lanzado, o null si no quedaba nadie y la API retiró el modelo.
-export const borrarHistorial = async (persona: string): Promise<EstadoPreparacion | null> => {
-  const { cuerpo } = await llamar(`/historiales/${encodeURIComponent(persona)}`, { method: "DELETE" });
+export const borrarHistorial = async (persona: string, token: string | null): Promise<EstadoPreparacion | null> => {
+  const { cuerpo } = await llamar(`/historiales/${encodeURIComponent(persona)}`, {
+    method: "DELETE",
+    headers: cabeceraToken(token),
+  });
   if (esObjeto(cuerpo) && esEstadoPreparacion(cuerpo.preparacion)) return cuerpo.preparacion;
   return null;
 };
