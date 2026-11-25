@@ -8,6 +8,8 @@ Lee los historiales de data/raw/<persona>/ (o, si no existe, de data/entrada/his
     modelo.joblib     modelo de producción entrenado aquí con la configuración registrada en MLflow
     recuentos.csv.gz  escuchas y no saltos por persona × canción × contexto del periodo
     catalogo.csv.gz   canciones candidatas (nombre, artista, álbum, duración estimada)
+    recuentos_completo.csv.gz, catalogo_completo.csv.gz
+                      lo mismo con todo el historial (opción historial="completo" del recomendador)
     personas.csv      miembros, % de modo aleatorio y tasa de no salto del periodo
     info.json         periodo, hiperparámetros y métricas de la preparación
 
@@ -41,6 +43,17 @@ SEMILLA = 42
 
 
 MIN_FILAS = 50
+
+
+def _catalogo(d: pd.DataFrame) -> pd.DataFrame:
+    """Canciones de las escuchas d: nombre, artista, álbum, escuchas del grupo y duración estimada."""
+    terminadas = d[d["reason_end"] == "trackdone"].groupby("track_id")["ms_played"].median()
+    cat = (d.groupby("track_id")
+           .agg(cancion=("cancion", "first"), artista=("artista", "first"), album=("album", "first"),
+                escuchas_grupo=("no_salto", "size"))
+           .join((terminadas / 1000).round().rename("duracion_s")))
+    cat["duracion_s"] = cat["duracion_s"].fillna(d.groupby("track_id")["ms_played"].max() / 1000).round()
+    return cat
 
 
 def preparar(historial: Path, hasta: str = "auto", meses: int = 18, salida: Path = SALIDA) -> dict:
@@ -79,13 +92,13 @@ def preparar(historial: Path, hasta: str = "auto", meses: int = 18, salida: Path
     shutil.rmtree(salida, ignore_errors=True)
     salida.mkdir(parents=True)
     src.to_csv(salida / "recuentos.csv.gz", index=False)
-    terminadas = periodo[periodo["reason_end"] == "trackdone"].groupby("track_id")["ms_played"].median()
-    catalogo = (periodo.groupby("track_id")
-                .agg(cancion=("cancion", "first"), artista=("artista", "first"), album=("album", "first"),
-                     escuchas_grupo=("no_salto", "size"))
-                .join((terminadas / 1000).round().rename("duracion_s")))
-    catalogo["duracion_s"] = catalogo["duracion_s"].fillna(periodo.groupby("track_id")["ms_played"].max() / 1000).round()
+    catalogo = _catalogo(periodo)
     catalogo.reset_index().to_csv(salida / "catalogo.csv.gz", index=False)
+    # Todo el historial hasta el fin del periodo, para el recomendador con historial="completo"
+    completo = h[h["hora_local"] < fin]
+    recuentos(completo).to_csv(salida / "recuentos_completo.csv.gz", index=False)
+    catalogo_completo = _catalogo(completo)
+    catalogo_completo.reset_index().to_csv(salida / "catalogo_completo.csv.gz", index=False)
     personas = periodo.groupby("persona").agg(escuchas=("no_salto", "size"), tasa_no_salto=("no_salto", "mean"),
                                               per_pct_shuffle=("shuffle", "mean"))
     personas.reset_index().to_csv(salida / "personas.csv", index=False)
@@ -97,6 +110,7 @@ def preparar(historial: Path, hasta: str = "auto", meses: int = 18, salida: Path
         "periodo": {"desde": f"{inicio:%Y-%m-%d}", "hasta": f"{fin - pd.Timedelta(days=1):%Y-%m-%d}", "meses": meses},
         "filas_entrenamiento": int(len(t)), "cv_mae": float(mean_absolute_error(y, pred)),
         "columnas": list(X.columns), "personas": personas.index.tolist(), "personas_sin_escuchas_en_el_periodo": fuera, "canciones_catalogo": int(len(catalogo)),
+        "historial_completo": {"desde": f"{completo['hora_local'].min():%Y-%m-%d}", "canciones": int(len(catalogo_completo))},
         "preparado": datetime.now().isoformat(timespec="seconds"),
     }
     joblib.dump({"modelo": modelo, "columnas": list(X.columns), "info": info}, salida / "modelo.joblib")

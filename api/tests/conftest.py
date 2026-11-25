@@ -40,3 +40,18 @@ def carpeta_datos(tmp_path_factory):
 @pytest.fixture(scope="session")
 def servicio(carpeta_datos):
     return Servicio.desde_carpeta(carpeta_datos, usar_mlflow=False)
+
+
+@pytest.fixture(scope="session")
+def servicio_con_antiguas(tmp_path_factory):
+    """Como el sintético, más una canción que solo «ana» escuchó en 2022 (fuera de los últimos 18 meses)."""
+    base = tmp_path_factory.mktemp("api_antiguas")
+    _historial_sintetico(base / "historial")
+    viejas = [{"ts": f"2022-03-{d:02d}T10:00:00Z", "ms_played": 180_000, "spotify_track_uri": "spotify:track:tOLD",
+               "master_metadata_track_name": "Canción antigua", "master_metadata_album_artist_name": "Artista antiguo",
+               "master_metadata_album_album_name": "Álbum antiguo", "reason_end": "trackdone", "shuffle": False}
+              for d in range(1, 11)]
+    with open(base / "historial" / "ana" / "Streaming_History_Audio_2022.json", "w", encoding="utf-8") as f:
+        json.dump(viejas, f, ensure_ascii=False)
+    preparar(base / "historial", hasta="2025-07-01", meses=18, salida=base / "datos")
+    return Servicio.desde_carpeta(base / "datos", usar_mlflow=False)

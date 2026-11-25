@@ -3,6 +3,8 @@
 Entorno local en Docker para la parte de Big Data del proyecto (especialidad de IA y Big Data).
 Solo se usa Hadoop y su ecosistema: **HDFS, YARN y Hive**, en Docker. No se usa PySpark. El seguimiento de experimentos y el registro de modelos se hacen con **MLflow instalado en local** (fuera de Docker): `bash servidor_mlflow.sh arrancar`.
 
+Repositorio: <https://github.com/daaniel53254/proyecto-Ebaluacion1> · Proyecto del 1er trimestre de Big Data + IA de CEBANC, «Playlist perfecta para viajes en grupo» (NPD Entertainment), de Daniel Magariño y Ander Ameztoy.
+
 > **¿Primera vez?** Sigue la [guía de instalación](INSTALACION.md) o ejecuta directamente `bash instalar.sh` desde la raíz del repositorio: comprueba requisitos, arranca todo y lo valida.
 
 ## Índice
@@ -13,10 +15,12 @@ Solo se usa Hadoop y su ecosistema: **HDFS, YARN y Hive**, en Docker. No se usa 
 4. [Validar el entorno](#validar-el-entorno)
 5. [Flujo de datos automatizado](#flujo-de-datos-automatizado)
 6. [Notebooks de IA](#notebooks-de-ia)
-7. [Parar el entorno](#parar-el-entorno)
-8. [Puertos y URLs](#puertos-y-urls)
-9. [Uso básico](#uso-básico)
-10. [Problemas frecuentes](#problemas-frecuentes)
+7. [API (FastAPI)](#api-fastapi)
+8. [Panel (Streamlit)](#panel-streamlit)
+9. [Parar el entorno](#parar-el-entorno)
+10. [Puertos y URLs](#puertos-y-urls)
+11. [Uso básico](#uso-básico)
+12. [Problemas frecuentes](#problemas-frecuentes)
 
 ## Requisitos
 
@@ -49,11 +53,16 @@ proyecto-Ebaluacion1/
 │       ├── silver.sql            limpieza de los 8 problemas y columnas derivadas
 │       ├── gold.sql              gold.objetivo1 y gold.candidatas
 │       └── validar_limpieza.sql  cada problema contado en bronze y en silver
-├── panel/                  panel v1 en Streamlit (app.py, datos.py; ver panel/README.md)
-├── api/                    API FastAPI del modelo de playlists
+├── api/                    API con FastAPI: subida de historiales, reentrenamiento, objetivos 1 y 2 (ver «API (FastAPI)»)
+│   └── tests/              pruebas con datos sintéticos (python -m pytest api -q)
+├── panel/                  panel en Streamlit (app.py, datos.py, tema NPD; ver panel/README.md)
 ├── web/                    web de usuario en Next.js (ver web/README.md)
 ├── arrancar_web.bat        arranca la API y la web con una carpeta de demo (data/demo)
-├── notebooks/              notebooks de la etapa de IA (01 revisión, 02 EDA, 03 modelos base)
+├── notebooks/              notebooks de la etapa de IA (01 revisión, 02 EDA, 03 modelos base, 04 drift, 05 modelos finales, 06 objetivo 2 final, 07 mejoras temporales)
+├── scripts/
+│   └── probar_tercer_historial.py  prueba de la API con el historial de una tercera persona
+├── requirements-ia.txt     versiones exactas de las librerías de los notebooks (las escribe el notebook 07)
+├── servidor_mlflow.sh/.bat servidor local de MLflow (puerto 5000)
 ├── docs/
 │   ├── diccionario_datos.md  columnas, tipos y cifras de cada capa
 │   └── evidencias/           log de cada ejecución del pipeline
@@ -139,8 +148,12 @@ Los notebooks leen los CSV que deja el pipeline en `data/dataset/` (silver y gol
 | `notebooks/01_revision_datos.ipynb` | Revisión de calidad del dataset de Kaggle, cobertura del cruce con los historiales y prueba de si el audio predice el gusto (Ridge). |
 | `notebooks/02_eda.ipynb` | Análisis exploratorio de silver y gold: hábitos por persona, franja y tipo de día, distribución de la tasa de no salto y diferencias entre lotes. |
 | `notebooks/03_modelos_base.ipynb` | Modelos base de los dos objetivos con MLflow: objetivo 1 (regresión de la tasa de no salto: dos modelos base, Ridge y Gradient Boosting, validación con `GroupKFold` por canción y test en el lote 2) y objetivo 2 (recomendador de grupo frente a "las más escuchadas", N = 20, 50 y 100). Guarda `recomendador_gustos.csv` para el panel. |
+| `notebooks/04_drift.ipynb` | Data drift y model drift con el lote 2 (PSI, calibración mensual, error por trimestre), comparación de políticas de reentrenamiento y estrategia de monitorización. Experimento `drift` en MLflow. |
+| `notebooks/05_modelos_finales.ipynb` | Modelos finales del objetivo 1: búsqueda de hiperparámetros, análisis de errores y registro de modelos en MLflow (`playlist_tasa_no_salto`, alias `produccion` y `anterior`). |
+| `notebooks/06_objetivo2_final.ipynb` | Objetivo 2 con los modelos finales: qué modelo ordena la playlist (GB absoluto frente a GB cuadrático y el empate de percentiles de Daniel), evaluación frente a «las más escuchadas» en el lote 2 con diferencia emparejada e intervalo bootstrap, y quién marca el mínimo del grupo. |
+| `notebooks/07_mejoras_temporal.ipynb` | Mejoras del modelo con validación temporal: variables con escuchas anteriores a cada corte y etiqueta de los 6 meses siguientes (historial propio de la canción, cansancio, tasa reciente), elección con la validación de 2025-H1 y prueba única en el lote 2 (MAE 0,190 → 0,160 frente al notebook 05); el recomendador con el modelo nuevo no mejora y se mantiene el del notebook 06. Guarda `modelos/07_modelo_temporal.joblib`. La sección 8 evalúa la opción «todo el historial» de la API (con reparto mínimo entre miembros) y la 9 escribe `requirements-ia.txt`. |
 
-**En local (Anaconda o venv):** `pip install pandas numpy scikit-learn matplotlib mlflow` y abre los notebooks desde la raíz del repositorio con el pipeline ya ejecutado.
+**En local (Anaconda o venv):** `pip install -r requirements-ia.txt` (las mismas versiones exactas con las que se ejecutaron los notebooks en Colab, para que local y Colab den las mismas cifras) y abre los notebooks desde la raíz del repositorio con el pipeline ya ejecutado.
 
 **En Google Colab:** los notebooks descargan los CSV de gold desde la carpeta compartida `Proyecto_Ebal1/datasets` de Drive (hace falta tener el acceso directo en "Mi unidad").
 
@@ -151,6 +164,69 @@ mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5055
 ```
 
 y abre `http://localhost:5055`. Si el servidor local de MLflow está en marcha (`bash servidor_mlflow.sh arrancar`), los notebooks registran directamente en `http://localhost:5000`.
+
+## API (FastAPI)
+
+La carpeta `api/` es el servicio completo: **cada persona sube el .zip de su historial de Spotify y, con todos los historiales subidos, la API genera el resto** (variables, modelo del objetivo 1, catálogo y playlists del objetivo 2).
+
+**Instalar y arrancar** (desde la raíz del repositorio):
+
+```bash
+pip install -r api/requirements.txt
+python -m api.preparar_datos          # opcional: prepara el modelo con los historiales de data/raw/ (unos 9 s)
+uvicorn api.main:app --port 8000
+```
+
+En Windows con Anaconda basta con hacer doble clic en `api/arrancar_api.bat`. Si al arrancar hay historiales en `data/raw/` y no hay modelo, la API lo prepara sola. La documentación interactiva, desde donde también se puede subir el zip, está en <http://localhost:8000/docs>.
+
+| Endpoint | Qué hace |
+| --- | --- |
+| `POST /historiales` | Sube el .zip del «Extended streaming history» (formulario con `persona`, `consentimiento`, `mayor_de_16` y `archivo`). Guarda solo los `Streaming_History_Audio_*.json` y, de ellos, 12 campos de escucha (sin IP ni país) en `data/raw/<persona>/`, la carpeta de entrada de `pipeline.sh`, junto a la prueba del consentimiento (`consentimiento.json`). Si la persona es nueva, devuelve **una sola vez** su token. Después reentrena en segundo plano. |
+| `GET /privacidad` | Texto completo que acepta cada persona (versión, finalidad, datos, conservación, derechos y edad mínima de 16 años). |
+| `GET /preparacion` | Estado del reentrenamiento: `en_curso`, `lista` o `error` (con el motivo). |
+| `GET /historiales`, `DELETE /historiales/{persona}` | Personas subidas; borrar los datos de una persona (derecho de supresión del RGPD) y reentrenar sin ellos. Borrar o volver a subir una persona que ya existe exige su token en la cabecera `X-Token`. |
+| `POST /objetivo1/prediccion` | Tasa de no salto prevista para persona × canción × contexto (hasta 1.000 filas). El contexto se da con `franja` (0-5) y `tipo_dia`, o con `fecha_hora`. |
+| `POST /objetivo2/playlist` | Playlist del grupo en un contexto: percentil del gusto de cada miembro, mínimo del grupo y desempate por la media. Admite `n`, `duracion_min`, `excluir_artistas` y las opciones de abajo. |
+| `GET /salud`, `/modelo`, `/personas`, `/contextos` | Estado, modelo cargado, miembros y contextos válidos. |
+
+Opciones de `POST /objetivo2/playlist`:
+
+| Campo | Valores | Qué hace |
+| --- | --- | --- |
+| `historial` | `"18_meses"` (por defecto) o `"completo"` | Con `"completo"`, las candidatas salen de todo el historial (3 o más escuchas del grupo), el gusto mezcla lo real con lo previsto, `(no saltos + 5 × prevista) / (escuchas + 5)`, y cada miembro conoce al menos un tercio de la lista. Se evalúa en la sección 8 del notebook 07. |
+| `ignorar_horario` | `false` (por defecto) o `true` | No filtra por franja ni tipo de día y pone primero las canciones que conoce todo el grupo. |
+| `detalle_miembros` | `true` (por defecto) o `false` | Con `false` la respuesta no trae el gusto de cada miembro por cada canción. |
+| `desempate` | `"media"` (por defecto) o `"media_y_escuchas"` | Cómo se deshacen los empates; la segunda opción no está evaluada. |
+
+```json
+POST /objetivo2/playlist
+{"personas": ["ander", "daniel"], "franja": 3, "tipo_dia": "fin_semana", "n": 30, "historial": "completo"}
+```
+
+Los errores devuelven siempre `{"error": ..., "detalle": ...}`: 403 si falta el token o no coincide, 404 si la persona o la canción no existen, 413 si el fichero es demasiado grande, 422 si la entrada no es válida (también sin consentimiento o con menos de 16 años) y 503 si el modelo no está listo.
+
+**Tokens.** Solo se guarda el hash SHA-256 del token (`data/raw/<persona>/.token`). Las carpetas que ya existían sin token (las del equipo) solo se pueden borrar o sustituir con el token de administración de la variable de entorno `API_TOKEN_ADMIN`; si no está definida, no se pueden borrar por la API.
+
+**Qué modelo usa.** Cada preparación entrena la configuración de la versión de producción del registro de MLflow (`playlist_tasa_no_salto@produccion`: Gradient Boosting con pérdida absoluta, notebook 05) con los **últimos 18 meses** de los historiales subidos, que es la política de reentrenamiento del notebook 04. Se entrena en el mismo entorno que la API porque cambian las personas con cada subida y porque un modelo guardado solo se puede cargar con la misma versión de scikit-learn. Si `MLFLOW_TRACKING_URI` apunta a un servidor con el registro, se carga desde él. Para reproducir exactamente el periodo de la versión registrada: `python -m api.preparar_datos --hasta 2025-07-01`.
+
+**Pruebas:** `python -m pytest api -q` (datos sintéticos: no necesitan los historiales reales ni MLflow).
+
+**Prueba con un tercer historial** (con la API arrancada; no subas a Git ni el zip ni la salida):
+
+```bash
+python scripts/probar_tercer_historial.py --zip ruta/al/my_spotify_data.zip --persona carla --franja 3 --tipo-dia fin_semana --n 30
+```
+
+## Panel (Streamlit)
+
+El panel cuenta la historia de los datos hasta la playlist (hábitos de cada persona, calidad de los datos, no salto por contexto y recomendador) con la identidad de NPD Entertainment. Lee los CSV de `data/dataset/` y, en la pestaña de la playlist, usa el mismo modelo que la API (`api/datos/`).
+
+```bash
+pip install -r panel/requirements.txt
+python -m streamlit run panel/app.py
+```
+
+Se abre en <http://localhost:8501>. En la pestaña de la playlist se puede elegir «Últimos 18 meses» o «Todo el historial» y una franja o «Sin importar». Más detalle en [panel/README.md](panel/README.md).
 
 ## Parar el entorno
 

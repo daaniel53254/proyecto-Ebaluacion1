@@ -545,10 +545,21 @@ with tab_api:
             min_a = None
         else:
             n_a, min_a = None, c[3].slider("Duración del viaje (min)", 15, 300, 120, step=15, key="api_min")
-        excluir = st.multiselect("Quitar artistas", sorted(srv.catalogo["artista"].dropna().unique()),
+        hay_completo = getattr(srv, "recuentos_completo", None) is not None
+        historial_a = st.segmented_control(
+            "Historial", ["18_meses", "completo"], default="18_meses", key="api_historial",
+            format_func={"18_meses": "Últimos 18 meses", "completo": "Todo el historial"}.get,
+            disabled=not hay_completo,
+            help="«Últimos 18 meses»: la regla de siempre. «Todo el historial»: también canciones antiguas (3 o más "
+                 "escuchas del grupo), gusto que mezcla lo real con lo previsto y cada uno conoce al menos un tercio "
+                 "de la lista." + ("" if hay_completo else " Para activarlo, vuelve a preparar los datos de la API.")
+        ) or "18_meses"
+        catalogo_a = srv.catalogo_completo if historial_a == "completo" else srv.catalogo
+        excluir = st.multiselect("Quitar artistas", sorted(catalogo_a["artista"].dropna().unique()),
                                  key="api_excluir", placeholder="Ninguno")
 
-    lista, cab = D.playlist_api(srv, en_api, franja_a, tipo_a, n=n_a, minutos=min_a, excluir_artistas=excluir)
+    lista, cab = D.playlist_api(srv, en_api, franja_a, tipo_a, n=n_a, minutos=min_a, excluir_artistas=excluir,
+                                historial=historial_a)
     if lista.empty:
         st.info("No queda ninguna canción con estos filtros.")
         st.stop()

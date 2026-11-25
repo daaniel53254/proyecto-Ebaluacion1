@@ -72,9 +72,18 @@ class PeticionPlaylist(Contexto):
     personas: list[str] = Field(..., min_length=1, max_length=10, description="miembros del grupo que viajan")
     ignorar_horario: bool = Field(False, description="true: no filtra por franja ni tipo de día; usa todas las escuchas "
                                                      "y pone primero las canciones que conoce todo el grupo")
+    historial: Literal["18_meses", "completo"] = Field(
+        "18_meses", description="«18_meses»: candidatas y gustos de los últimos 18 meses (regla del notebook 03). "
+                                "«completo»: todo el historial (canciones con 3 o más escuchas del grupo), gusto suavizado "
+                                "entre lo real y lo previsto, y cada miembro conoce al menos un tercio de la lista")
     n: Optional[int] = Field(50, ge=1, le=500, description="número máximo de canciones")
     duracion_min: Optional[float] = Field(None, gt=0, le=1440, description="duración del viaje en minutos (corta la lista al llegar)")
     excluir_artistas: list[str] = Field(default_factory=list, max_length=50)
+    detalle_miembros: bool = Field(True, description="false: la respuesta no trae el gusto de cada miembro por cada "
+                                                     "canción (útil para enseñar la lista al grupo sin exponer gustos)")
+    desempate: Literal["media", "media_y_escuchas"] = Field(
+        "media", description="cómo se deshacen los empates del gusto del grupo: «media» de los percentiles (lo evaluado "
+                             "en el notebook 06) o, además, por las escuchas del grupo («media_y_escuchas», sin evaluar)")
 
     def necesita_contexto(self) -> bool:
         return not self.ignorar_horario
@@ -83,7 +92,8 @@ class PeticionPlaylist(Contexto):
 class GustoMiembro(BaseModel):
     gusto: float
     percentil: float
-    origen: Literal["real", "prevista"]
+    origen: Literal["real", "mezcla", "prevista"] = Field(..., description="real: 5 o más escuchas; mezcla: 1 a 4 "
+                                                         "(solo con historial completo); prevista: sin escuchas o regla de 18 meses")
 
 
 class CancionPlaylist(BaseModel):
@@ -95,7 +105,7 @@ class CancionPlaylist(BaseModel):
     gusto_grupo: float = Field(..., description="mínimo de los percentiles de los miembros")
     desempate: float = Field(..., description="media de los percentiles")
     conocida_por_todos: bool = Field(..., description="todos los miembros tienen gusto real (5 o más escuchas), sin predicción")
-    miembros: dict[str, GustoMiembro]
+    miembros: Optional[dict[str, GustoMiembro]] = Field(None, description="no aparece con detalle_miembros=false")
 
 
 class RespuestaPlaylist(BaseModel):
@@ -103,6 +113,7 @@ class RespuestaPlaylist(BaseModel):
     franja: Optional[int] = Field(..., description="null si se ignora el horario")
     franja_horas: str
     tipo_dia: str
+    historial: Literal["18_meses", "completo"]
     regla: str
     n_canciones: int
     duracion_total_min: float
