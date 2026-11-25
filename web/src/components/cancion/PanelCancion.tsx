@@ -247,7 +247,7 @@ const Respuesta: FC<RespuestaProps> = ({ respuesta, personasModelo }) => {
       <div className="flex flex-col gap-3">
         <h3 className="font-display text-xl font-bold">¿Cuántas veces la escucharía cada uno sin saltarla?</h3>
         <p className="max-w-2xl text-sm text-tinta-2">
-          Es la tasa de no salto del objetivo 1: la real si esa persona la ha escuchado 5 o más veces en este momento,
+          Es la tasa de no salto del objetivo 1: la real si esa persona la ha escuchado 3 o más veces (5 si eliges un momento concreto),
           y si no, la que predice el modelo (barra rayada). El percentil la compara con el resto de sus canciones.
         </p>
         <ul aria-label="Tasa de no salto de cada uno" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

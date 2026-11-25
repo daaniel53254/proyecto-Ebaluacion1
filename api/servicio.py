@@ -283,6 +283,11 @@ class Servicio:
             g = g[~g["artista"].str.casefold().isin(fuera)]
         if excluir_canciones:
             g = g[~g.index.isin(list(excluir_canciones))]
+        if sin_horario:
+            # Sin horario solo entran canciones que, como mínimo, la mitad del grupo (redondeando hacia arriba: 2 de 3,
+            # 3 de 5) ha escuchado alguna vez; al resto el modelo las predice a partir de quienes sí la conocen.
+            necesarios = -(-len(personas) // 2)
+            g = g[f.groupby("track_id")["conoce"].sum().reindex(g.index) >= necesarios]
         # Sin horario: primero las que no dejan a nadie por debajo del suelo; dentro, las que todos tienen con gusto
         # real y luego la media de los percentiles menos su dispersión (que nadie quede lejos del resto). Con horario se mantiene la regla evaluada (mínimo y desempate por la media).
         if sin_horario:
@@ -345,7 +350,8 @@ class Servicio:
             regla = ("historial completo: gusto suavizado (no saltos reales + 5 × prevista) / (escuchas + 5); " + regla +
                      "; cada miembro conoce al menos 1/3 de la lista")
         if sin_horario:
-            regla = (f"sin horario: primero las canciones que nadie tiene por debajo del percentil {SUELO_SIN_HORARIO:.2f}; "
+            regla = ("sin horario: solo canciones que ha escuchado al menos la mitad del grupo (2 de 3, 3 de 5); "
+                     f"primero las que nadie tiene por debajo del percentil {SUELO_SIN_HORARIO:.2f}; "
                      "dentro, las de gusto real de todos antes que las demás y de mayor a menor media de los percentiles "
                      "menos su dispersión entre miembros")
         return {"personas": personas, "franja": None if sin_horario else _lista_franjas(franja)[0],

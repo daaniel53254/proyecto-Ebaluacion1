@@ -34,7 +34,7 @@ export const gustoMedioPorPersona = (playlist: Playlist): GustoMedio[] => {
 };
 
 // Media de los percentiles de los miembros: es lo que enseña la barra del grupo.
-// El orden de la playlist sigue siendo el de la API (el mínimo de los percentiles).
+// El orden de la playlist es el de la API: con horario, el mínimo de los percentiles; sin horario, la media menos su dispersión.
 export const percentilMedioDelGrupo = (cancion: CancionPlaylist, personas: string[]): number => {
   const percentiles = personas.flatMap((persona) => {
     const gusto = cancion.miembros[persona];

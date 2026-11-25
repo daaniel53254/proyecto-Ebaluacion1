@@ -44,7 +44,7 @@ Daniel ha hecho una web para que cualquier persona del grupo use el sistema sin 
 
 Los filtros se guardan en la sesión del navegador, así que el paso 4 usa los mismos. La web llama a `POST /objetivo2/playlist` y enseña:
 
-- cuatro cifras: canciones, duración, artistas distintos y porcentaje de canciones con gusto real de todos (5 o más escuchas de cada miembro, sin predicción);
+- cuatro cifras: canciones, duración, artistas distintos y porcentaje de canciones con gusto real de todos (3 o más escuchas de cada miembro sin horario, 5 con franja; sin predicción);
 - para cada canción, una barra por persona con su percentil (sólida si el gusto es real y rayada si es una predicción del modelo) y una barra blanca para el grupo;
 - el percentil medio de la lista para cada persona: si a alguien le sale cerca de 50, el modelo no distingue bien sus gustos.
 
@@ -64,7 +64,7 @@ El orden de la playlist es el de la API: el mínimo de los percentiles, con dese
 **¿Entraría esta canción? (paso 4).** Une los dos objetivos en una pregunta que se entiende sin saber nada del modelo. Se busca una canción, se eligen los filtros (los mismos del paso 3) y la web llama a `POST /objetivo2/cancion`, que devuelve:
 
 - si **entraría** en la playlist y en qué puesto quedaría; si no entra, cuántos puestos le faltan, o si es porque se ha quitado su artista o la propia canción;
-- la **tasa de no salto de cada persona** (objetivo 1): la real si la ha escuchado 5 o más veces en ese momento y, si no, la que predice el modelo (barra rayada), con sus escuchas y su percentil.
+- la **tasa de no salto de cada persona** (objetivo 1): la real si la ha escuchado 3 o más veces (5 si eliges un momento concreto) y, si no, la que predice el modelo (barra rayada), con sus escuchas y su percentil.
 
 El puesto sale del mismo orden que la playlist del paso 3, así que las dos páginas nunca se contradicen. De momento solo se pueden comprobar canciones que alguien del grupo ha escuchado; Ander está preparando la búsqueda en otras fuentes para poder comprobar cualquier canción.
 

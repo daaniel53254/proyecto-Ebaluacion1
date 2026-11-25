@@ -41,9 +41,9 @@ Media de las 30: **56** · mínimo medio: **18**
 | 30 | Diles | Bad Bunny | 13 | 5 | 71 | 30 | 5 |
 
 ## Ahora
-Gusto real con 3 o más escuchas. Orden: primero las canciones en las que nadie baja del percentil 20; dentro, las de gusto real de los tres antes que las previstas, y de mayor a menor media de los percentiles menos su dispersión entre miembros.
+Gusto real con 3 o más escuchas. Solo entran canciones que ha escuchado al menos la mitad del grupo (2 de 3, 3 de 5); a quien no la conoce, el modelo le predice el gusto. Orden: primero las canciones en las que nadie baja del percentil 20; dentro, las de gusto real de los tres antes que las previstas, y de mayor a menor media de los percentiles menos su dispersión entre miembros.
 
-Media de las 30: **90** · mínimo medio: **81**
+Media de las 30: **90** · mínimo medio: **80**
 
 | # | Canción | Artista | aitor | ander | daniel | Media | Mínimo |
 |---|---|---|---|---|---|---|---|
@@ -60,22 +60,22 @@ Media de las 30: **90** · mínimo medio: **81**
 | 11 | Bad Voy | GRECAS | 98 | 31 | 95 | 75 | 31 |
 | 12 | Si Saliste Remix | Yung Beef | 32 | 78 | 95 | 68 | 32 |
 | 13 | Explícale (feat. Bad Bunny) | Yandel | 83 | 27 | 95 | 68 | 27 |
-| 14 | Teteo | Anuel AA | 95 | 96 | 95 | 96 | 95 |
-| 15 | Reggaetonera | Anuel AA | 95 | 97 | 95 | 96 | 95 |
-| 16 | Me Mareo | Kidd Voodoo | 94 | 96 | 95 | 95 | 94 |
-| 17 | El Single | Gloosito | 93 | 92 | 95 | 93 | 92 |
-| 18 | EL NENE | Anuel AA | 98 | 99 | 90 | 96 | 90 |
-| 19 | La Romana | Bad Bunny | 96 | 97 | 90 | 95 | 90 |
-| 20 | Tití Me Preguntó | Bad Bunny | 90 | 98 | 95 | 94 | 90 |
-| 21 | Adderall | Almighty | 90 | 100 | 95 | 95 | 90 |
-| 22 | DIESEL | Raul Clyde | 94 | 96 | 90 | 93 | 90 |
-| 23 | MIA | Bad Bunny | 90 | 95 | 95 | 93 | 90 |
-| 24 | ¿Quien Tu Eres? | Bad Bunny | 90 | 94 | 95 | 93 | 90 |
-| 25 | El Manual | Anuel AA | 95 | 89 | 95 | 93 | 89 |
-| 26 | METALLICA | Yung Beef | 94 | 89 | 95 | 93 | 89 |
-| 27 | Un Palo | JC Reyes | 98 | 89 | 95 | 94 | 89 |
-| 28 | Dile a Tu Amiga | Dalmata | 98 | 88 | 95 | 94 | 88 |
-| 29 | DESEO | JC Reyes | 94 | 89 | 95 | 93 | 89 |
-| 30 | ASERE (REMIX) - Hosted By Raul Clyde | Xiyo | 95 | 93 | 89 | 92 | 89 |
+| 14 | Reggaetonera | Anuel AA | 95 | 97 | 95 | 96 | 95 |
+| 15 | Me Mareo | Kidd Voodoo | 94 | 96 | 95 | 95 | 94 |
+| 16 | El Single | Gloosito | 93 | 92 | 95 | 93 | 92 |
+| 17 | EL NENE | Anuel AA | 98 | 99 | 90 | 96 | 90 |
+| 18 | La Romana | Bad Bunny | 96 | 97 | 90 | 95 | 90 |
+| 19 | Tití Me Preguntó | Bad Bunny | 90 | 98 | 95 | 94 | 90 |
+| 20 | Adderall | Almighty | 90 | 100 | 95 | 95 | 90 |
+| 21 | MIA | Bad Bunny | 90 | 95 | 95 | 93 | 90 |
+| 22 | ¿Quien Tu Eres? | Bad Bunny | 90 | 94 | 95 | 93 | 90 |
+| 23 | El Manual | Anuel AA | 95 | 89 | 95 | 93 | 89 |
+| 24 | METALLICA | Yung Beef | 94 | 89 | 95 | 93 | 89 |
+| 25 | Un Palo | JC Reyes | 98 | 89 | 95 | 94 | 89 |
+| 26 | Dile a Tu Amiga | Dalmata | 98 | 88 | 95 | 94 | 88 |
+| 27 | ASERE (REMIX) - Hosted By Raul Clyde | Xiyo | 95 | 93 | 89 | 92 | 89 |
+| 28 | BOLA BEISBOL | Xiyo | 95 | 93 | 89 | 92 | 89 |
+| 29 | VIVES EN UN TBT | Xiyo | 95 | 93 | 89 | 92 | 89 |
+| 30 | Es de la Mafia | La Mafia del Amor | 98 | 95 | 88 | 94 | 88 |
 
 Nota: son los mismos gustos con los que se ordena la lista, así que mide el cambio de criterio, no si las canciones gustan más de verdad. Con una franja y tipo de día concretos no cambia nada.

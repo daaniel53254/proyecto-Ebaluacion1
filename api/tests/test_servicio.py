@@ -68,6 +68,8 @@ def test_playlist_sin_horario(servicio):
     for pasa in (True, False):
         bloque = [x["conocida_por_todos"] for x in c if (x["gusto_grupo"] >= SUELO_SIN_HORARIO) == pasa]
         assert bloque == sorted(bloque, reverse=True)                  # y en cada bloque, las reales antes
+    f, g = servicio._ranking(["ana", "beñat"], None, None, 30, None, (), "18_meses", "media")
+    assert f.groupby("track_id")["conoce"].sum().reindex(g.index).min() >= 1   # la mitad del grupo (hacia arriba) la ha escuchado
 
 
 def test_sin_horario_usa_todas_las_escuchas(servicio):

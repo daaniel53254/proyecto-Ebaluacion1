@@ -122,7 +122,7 @@ export type CancionCatalogo = {
 export type PeticionCancion = PeticionPlaylist & { track_id: string };
 
 export type GustoCancion = {
-  // Real si tiene 5 o más escuchas en el contexto; si no, la prevista por el modelo (objetivo 1).
+  // Real si tiene 3 o más escuchas sin horario (5 en un contexto concreto); si no, la prevista por el modelo (objetivo 1).
   tasa_no_salto: number;
   percentil: number;
   origen: Origen;

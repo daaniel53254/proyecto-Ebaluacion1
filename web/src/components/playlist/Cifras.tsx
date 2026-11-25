@@ -33,7 +33,7 @@ export const Cifras: FC<CifrasProps> = ({ cifras }) => {
       <Cifra
         nombre="Con gusto real de todos"
         valor={porcentaje(cifras.conGustoRealDeTodos)}
-        ayuda="Todos la han escuchado 5 o más veces: no es una predicción."
+        ayuda="Todos la han escuchado 3 o más veces (5 si eliges un momento concreto): no es una predicción."
       />
     </dl>
   );

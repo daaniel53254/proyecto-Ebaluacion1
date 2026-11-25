@@ -4,7 +4,8 @@ import { tarjeta } from "@/components/ui/estilos";
 import { colorPersona } from "@/lib/colores";
 
 // Ejemplo inventado (no son datos de nadie) que enseña la regla de la playlist:
-// una barra por persona con su percentil y, a la derecha, el del grupo, que es el mínimo. Van ordenadas por él.
+// una barra por persona con su percentil y, a la derecha, el del grupo: la media menos lo que se separan entre ellos.
+// Van ordenadas por él.
 type CancionEjemplo = {
   nombre: string;
   percentiles: readonly [number, number, number];
@@ -42,8 +43,15 @@ type FilaProps = {
   indice: number;
 };
 
+// Media de los percentiles menos su dispersión: sube si gusta a todos y baja si a alguien no le gusta.
+const puntuacionGrupo = (percentiles: readonly number[]): number => {
+  const media = percentiles.reduce((suma, p) => suma + p, 0) / percentiles.length;
+  const dispersion = Math.sqrt(percentiles.reduce((suma, p) => suma + (p - media) ** 2, 0) / percentiles.length);
+  return Math.round(media - dispersion);
+};
+
 const Fila: FC<FilaProps> = ({ cancion, indice }) => {
-  const gustoGrupo = Math.min(...cancion.percentiles);
+  const gustoGrupo = puntuacionGrupo(cancion.percentiles);
   return (
     <li className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 py-4 first:pt-0 last:pb-0">
       <p className="text-sm font-medium text-tinta">{cancion.nombre}</p>
@@ -90,8 +98,8 @@ export const MuestraRegla: FC = () => {
         })}
       </ol>
       <p className="mt-6 border-t border-linea pt-4 text-sm text-tinta-2">
-        La canción B le encanta a dos, pero a Iker no: baja al final de la lista. Cuenta lo que le gusta{" "}
-        <span className="text-tinta">al que menos le gusta</span>.
+        La canción B le encanta a dos, pero a Iker no: baja al final de la lista. Cuenta la media, pero{" "}
+        <span className="text-tinta">restando lo que se separan</span> unos de otros.
       </p>
     </figure>
   );

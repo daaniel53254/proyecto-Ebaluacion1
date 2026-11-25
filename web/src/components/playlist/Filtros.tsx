@@ -168,7 +168,7 @@ const MomentoDelDia: FC<MomentoDelDiaProps> = ({ momento, alCambiar }) => {
           );
         })}
       </select>
-      <p className="text-xs text-apagado">«No importa» usa todas las escuchas y busca canciones que gusten parecido a todos, sin dejar a nadie muy abajo.</p>
+      <p className="text-xs text-apagado">«No importa» usa todas las escuchas y busca canciones que gusten parecido a todos, sin dejar a nadie muy abajo. Solo entran canciones que ha escuchado al menos la mitad del grupo.</p>
     </div>
   );
 };

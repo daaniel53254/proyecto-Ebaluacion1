@@ -199,7 +199,7 @@ Opciones de `POST /objetivo2/playlist`:
 | Campo | Valores | Qué hace |
 | --- | --- | --- |
 | `historial` | `"18_meses"` (por defecto) o `"completo"` | Con `"completo"`, las candidatas salen de todo el historial (3 o más escuchas del grupo), el gusto mezcla lo real con lo previsto, `(no saltos + 5 × prevista) / (escuchas + 5)`, y cada miembro conoce al menos un tercio de la lista. Se evalúa en la sección 8 del notebook 07. |
-| `ignorar_horario` | `false` (por defecto) o `true` | No filtra por franja ni tipo de día. Ordena primero las canciones que nadie tiene por debajo del percentil 0,20; dentro, las de gusto real de todos (3 o más escuchas) antes que las previstas, y de mayor a menor media de los percentiles menos su dispersión entre miembros. |
+| `ignorar_horario` | `false` (por defecto) o `true` | No filtra por franja ni tipo de día. Solo entran canciones que ha escuchado al menos la mitad del grupo (2 de 3, 3 de 5); a quien no la conoce, el modelo le predice el gusto. Ordena primero las canciones que nadie tiene por debajo del percentil 0,20; dentro, las de gusto real de todos (3 o más escuchas) antes que las previstas, y de mayor a menor media de los percentiles menos su dispersión entre miembros. |
 | `detalle_miembros` | `true` (por defecto) o `false` | Con `false` la respuesta no trae el gusto de cada miembro por cada canción. |
 | `desempate` | `"media"` (por defecto) o `"media_y_escuchas"` | Cómo se deshacen los empates; la segunda opción no está evaluada. |
 | `franjas` | lista de franjas seguidas, p. ej. `[5, 0]` | Varias franjas en lugar de una (con `tipo_dia`); la web las usa para «mañana», «tarde» y «noche». |

@@ -18,8 +18,8 @@ const PaginaPlaylist = () => {
             Música que <span className="text-acento">nadie salta</span>
           </h1>
           <p className="max-w-xl text-lg leading-relaxed text-tinta-2">
-            Elegid quién viaja, a qué hora y cuánto dura el trayecto. Cada canción vale lo que le gusta al que menos le
-            gusta, así que arriba quedan las que os gustan a todos.
+            Elegid quién viaja, a qué hora y cuánto dura el trayecto. Arriba quedan las canciones que os gustan a
+            todos, sin dejar a nadie muy abajo.
           </p>
         </div>
         <PanelPlaylist />
