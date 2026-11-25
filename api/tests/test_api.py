@@ -211,3 +211,18 @@ def test_cors_web(cliente):
     assert r.headers["access-control-allow-origin"] == "http://127.0.0.1:3000"
     r = cliente.get("/salud", headers={"Origin": "http://otro.com"})
     assert "access-control-allow-origin" not in r.headers
+
+
+def test_cancion_canciones_y_artistas_por_persona(cliente):
+    p = cliente.post("/objetivo2/playlist", json={"personas": ["ana", "beñat"], "franjas": [3, 4], "tipo_dia": "fin_semana",
+                                                  "n": 5}).json()
+    assert p["franja_horas"] == "12-20h"
+    tid = p["canciones"][0]["track_id"]
+    r = cliente.post("/objetivo2/cancion", json={"track_id": tid, "personas": ["ana", "beñat"], "franjas": [3, 4],
+                                                 "tipo_dia": "fin_semana", "n": 5})
+    assert r.status_code == 200 and r.json()["entra"] and r.json()["posicion"] == 1
+    assert cliente.post("/objetivo2/cancion", json={"track_id": "x", "personas": ["ana"], "ignorar_horario": True}).status_code == 404
+    assert cliente.get("/canciones", params={"buscar": "a"}).status_code == 422
+    assert isinstance(cliente.get("/canciones", params={"buscar": "artista"}).json(), list)
+    a = cliente.get("/artistas", params={"por_persona": True}).json()
+    assert a and isinstance(a[0]["personas"], dict)
