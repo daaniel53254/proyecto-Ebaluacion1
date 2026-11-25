@@ -11,6 +11,7 @@ Lee los historiales de data/raw/<persona>/ (o, si no existe, de data/entrada/his
     recuentos_completo.csv.gz, catalogo_completo.csv.gz
                       lo mismo con todo el historial (opción historial="completo" del recomendador)
     personas.csv      miembros, % de modo aleatorio y tasa de no salto del periodo
+    novedades.joblib  modelo de canciones nuevas del notebook 08 (POST /objetivo2/entraria), con todo el historial
     info.json         periodo, hiperparámetros y métricas de la preparación
 
 Se entrena aquí, con la configuración de la versión de producción del registro de MLflow
@@ -31,6 +32,7 @@ from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import GroupKFold
 
+from api import novedades
 from api.caracteristicas import MIN_ESCUCHAS, ZONA, carpeta_historial_por_defecto, leer_historiales, recuentos, tabla, variables_oof
 
 RAIZ = Path(__file__).resolve().parent.parent
@@ -99,6 +101,13 @@ def preparar(historial: Path, hasta: str = "auto", meses: int = 18, salida: Path
     recuentos(completo).to_csv(salida / "recuentos_completo.csv.gz", index=False)
     catalogo_completo = _catalogo(completo)
     catalogo_completo.reset_index().to_csv(salida / "catalogo_completo.csv.gz", index=False)
+    # Modelo de canciones nuevas (notebook 08): si no hay datos suficientes, la API funciona igual sin él
+    try:
+        paquete_nov = novedades.entrenar(completo)
+        joblib.dump(paquete_nov, salida / "novedades.joblib")
+        info_nov = paquete_nov["info"]
+    except Exception as e:
+        info_nov = {"error": f"{type(e).__name__}: {e}"}
     personas = periodo.groupby("persona").agg(escuchas=("no_salto", "size"), tasa_no_salto=("no_salto", "mean"),
                                               per_pct_shuffle=("shuffle", "mean"))
     personas.reset_index().to_csv(salida / "personas.csv", index=False)
@@ -111,6 +120,7 @@ def preparar(historial: Path, hasta: str = "auto", meses: int = 18, salida: Path
         "filas_entrenamiento": int(len(t)), "cv_mae": float(mean_absolute_error(y, pred)),
         "columnas": list(X.columns), "personas": personas.index.tolist(), "personas_sin_escuchas_en_el_periodo": fuera, "canciones_catalogo": int(len(catalogo)),
         "historial_completo": {"desde": f"{completo['hora_local'].min():%Y-%m-%d}", "canciones": int(len(catalogo_completo))},
+        "novedades": info_nov,
         "preparado": datetime.now().isoformat(timespec="seconds"),
     }
     joblib.dump({"modelo": modelo, "columnas": list(X.columns), "info": info}, salida / "modelo.joblib")

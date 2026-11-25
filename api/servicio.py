@@ -14,6 +14,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from api import novedades
 from api.caracteristicas import MIN_ESCUCHAS, NOMBRES_FRANJA, codificar, matriz
 
 NOMBRE_REGISTRO = "playlist_tasa_no_salto"
@@ -43,6 +44,7 @@ class Servicio:
     origen_modelo: str = "joblib"
     recuentos_completo: pd.DataFrame | None = None
     catalogo_completo: pd.DataFrame | None = None
+    novedades: dict | None = None           # modelo de canciones nuevas (notebook 08); None si no se pudo entrenar
 
     # ------------------------------------------------------------------ carga
     @classmethod
@@ -78,7 +80,8 @@ class Servicio:
             cat_c = pd.read_csv(carpeta / "catalogo_completo.csv.gz",
                                 dtype={"track_id": str, "cancion": str, "artista": str, "album": str},
                                 keep_default_na=False, na_values={"duracion_s": [""]}).set_index("track_id")
-        return cls(modelo, paquete["columnas"], recuentos, catalogo, personas, info, origen, rec_c, cat_c)
+        nov = joblib.load(carpeta / "novedades.joblib") if (carpeta / "novedades.joblib").exists() else None
+        return cls(modelo, paquete["columnas"], recuentos, catalogo, personas, info, origen, rec_c, cat_c, nov)
 
     def __post_init__(self):
         r = self.recuentos
@@ -301,6 +304,78 @@ class Servicio:
                 "franja_horas": SIN_HORARIO if sin_horario else NOMBRES_FRANJA[int(franja)],
                 "tipo_dia": SIN_HORARIO if sin_horario else tipo_dia, "historial": historial, "regla": regla,
                 "n_canciones": len(canciones), "duracion_total_min": round(total / 60, 1), "canciones": canciones}
+
+    # ------------------------------------------------- objetivo 2: canciones nuevas
+    def entraria(self, personas: list[str], canciones: list[dict], franja: int | None = None,
+                 tipo_dia: str | None = None) -> dict:
+        """¿Entraría cada canción en la playlist del grupo? Pensado para canciones que nadie ha escuchado (notebook 08).
+
+        Para cada miembro: probabilidad de que la adopte (la vuelva a escuchar sin saltarla en 90 días), pasada a
+        percentil frente a sus novedades de los últimos 12 meses. Gusto del grupo = mínimo; entra si es 0,80 o más."""
+        if self.novedades is None:
+            motivo = self.info.get("novedades", {}).get("error", "no hay datos preparados con el modelo de canciones nuevas")
+            raise ErrorEntrada("El modelo de canciones nuevas no está preparado: vuelve a ejecutar «python -m api.preparar_datos» "
+                               "(o POST /preparacion) con historiales más largos", 409, {"motivo": motivo})
+        if len(set(personas)) != len(personas):
+            raise ErrorEntrada("Hay personas repetidas en el grupo")
+        self.comprobar_personas(personas)
+        sin_modelo = [p for p in personas if p not in self.novedades["referencias"]]
+        if sin_modelo:
+            raise ErrorEntrada(f"Sin canciones nuevas en el historial para comparar: {', '.join(sin_modelo)}", 404)
+        if (franja is None) != (tipo_dia is None):
+            raise ErrorEntrada("Indica franja y tipo_dia, o ninguno de los dos para ignorar el horario")
+        catalogo = self.catalogo_completo if self.catalogo_completo is not None else self.catalogo
+        conoce = self._propio_completo if self.recuentos_completo is not None else self._propio
+        filas, errores = [], []
+        for i, c in enumerate(canciones):
+            tid = c.get("track_id")
+            if tid and tid in catalogo.index:
+                r = catalogo.loc[tid]
+                filas.append({"track_id": tid, "cancion": c.get("cancion") or r["cancion"], "artista": r["artista"],
+                              "album": r["album"], "en_catalogo": True})
+            elif c.get("artista"):
+                filas.append({"track_id": tid or f"nueva_{i + 1}", "cancion": c.get("cancion"), "artista": c["artista"],
+                              "album": c.get("album") or "?", "en_catalogo": False})
+            else:
+                errores.append({"posicion": i, "track_id": tid, "motivo": "canción fuera del catálogo: indica «artista» (y si puedes «album»)"})
+        if errores:
+            raise ErrorEntrada("Hay canciones que no se pueden evaluar", 404, errores)
+        df = pd.DataFrame(filas)
+        res = novedades.evaluar(self.novedades, personas, df, franja, tipo_dia)
+        resultados = []
+        for r in res.to_dict("records"):
+            miembros, faltan, ya = {}, [], []
+            for p in personas:
+                la_conoce = (p, r["track_id"]) in conoce.index
+                miembros[p] = {"probabilidad_adopcion": round(float(r[f"prob_{p}"]), 4),
+                               "percentil": round(float(r[f"pct_{p}"]), 4),
+                               "escuchas_artista": int(r[f"art_n_{p}"]), "ya_la_conoce": bool(la_conoce)}
+                if r[f"pct_{p}"] < novedades.UMBRAL_PCT:
+                    faltan.append(f"{p} ({r[f'pct_{p}']:.2f})")
+                if la_conoce:
+                    ya.append(p)
+            if r["entra"]:
+                motivo = "entra: está en el 20 % de canciones nuevas más prometedoras para todos los miembros"
+            else:
+                motivo = f"no entra: no llega al percentil {novedades.UMBRAL_PCT:.2f} para {', '.join(faltan)}"
+            if ya:
+                motivo += (f". Aviso: {', '.join(ya)} ya la ha escuchado; para canciones conocidas es mejor "
+                           "POST /objetivo2/playlist")
+            resultados.append({"track_id": r["track_id"], "cancion": None if pd.isna(r["cancion"]) else str(r["cancion"]),
+                               "artista": str(r["artista"]), "album": str(r["album"]), "en_catalogo": bool(r["en_catalogo"]),
+                               "percentil_grupo": round(float(r["pct_grupo"]), 4), "entra": bool(r["entra"]),
+                               "motivo": motivo, "miembros": miembros})
+        sin_horario = franja is None
+        return {"personas": personas, "franja": None if sin_horario else int(franja),
+                "franja_horas": SIN_HORARIO if sin_horario else NOMBRES_FRANJA[int(franja)],
+                "tipo_dia": SIN_HORARIO if sin_horario else tipo_dia,
+                "regla": ("probabilidad de adoptarla (volver a escucharla sin saltarla en 90 días) de cada miembro, en "
+                          "percentil frente a sus canciones nuevas de los últimos 12 meses; gusto del grupo = mínimo; entra "
+                          f"si es {novedades.UMBRAL_PCT:.2f} o más" + ("; media de los 12 contextos" if sin_horario else "")),
+                "umbral_percentil": novedades.UMBRAL_PCT,
+                "huecos_novedades": novedades.huecos(self.novedades["apertura"], personas),
+                "n_lista": novedades.N_LISTA, "datos_hasta": self.novedades["info"]["datos_hasta"],
+                "resultados": resultados}
 
     # ------------------------------------------------------------- información
     def descripcion(self) -> dict:

@@ -146,6 +146,7 @@ Los notebooks leen los CSV que deja el pipeline en `data/dataset/` (silver y gol
 | `notebooks/05_modelos_finales.ipynb` | Modelos finales del objetivo 1: búsqueda de hiperparámetros, análisis de errores y registro de modelos en MLflow (`playlist_tasa_no_salto`, alias `produccion` y `anterior`). |
 | `notebooks/06_objetivo2_final.ipynb` | Objetivo 2 con los modelos finales: qué modelo ordena la playlist (GB absoluto frente a GB cuadrático y el empate de percentiles de Daniel), evaluación frente a «las más escuchadas» en el lote 2 con diferencia emparejada e intervalo bootstrap, y quién marca el mínimo del grupo. |
 | `notebooks/07_mejoras_temporal.ipynb` | Mejoras del modelo con validación temporal: variables con escuchas anteriores a cada corte y etiqueta de los 6 meses siguientes (historial propio de la canción, cansancio, tasa reciente), elección con la validación de 2025-H1 y prueba única en el lote 2 (MAE 0,190 → 0,160 frente al notebook 05); el recomendador con el modelo nuevo no mejora y se mantiene el del notebook 06. Guarda `modelos/07_modelo_temporal.joblib`. La sección 8 evalúa la opción «todo el historial» de la API (con reparto mínimo entre miembros) y la 9 escribe `requirements-ia.txt`. |
+| `notebooks/08_canciones_nuevas.ipynb` | Canciones que nadie ha escuchado: apertura de cada persona a lo nuevo, modelo de adopción (la vuelve a escuchar sin saltarla en 90 días) con variables anteriores a cada primera escucha, validación temporal (2025-01 a 03) y prueba única en el lote 2 (AUC 0,637; el 20 % mejor se adopta una vez y media más). Regla «¿entraría?» con huecos para novedades, la de `POST /objetivo2/entraria`. Guarda `modelos/08_modelo_novedades.joblib`. |
 
 **En local (Anaconda o venv):** `pip install -r requirements-ia.txt` (las mismas versiones exactas con las que se ejecutaron los notebooks en Colab, para que local y Colab den las mismas cifras) y abre los notebooks desde la raíz del repositorio con el pipeline ya ejecutado.
 
@@ -181,6 +182,7 @@ En Windows con Anaconda basta con hacer doble clic en `api/arrancar_api.bat`. Si
 | `GET /historiales`, `DELETE /historiales/{persona}` | Personas subidas; borrar los datos de una persona (derecho de supresión del RGPD) y reentrenar sin ellos. Borrar o volver a subir una persona que ya existe exige su token en la cabecera `X-Token`. |
 | `POST /objetivo1/prediccion` | Tasa de no salto prevista para persona × canción × contexto (hasta 1.000 filas). El contexto se da con `franja` (0-5) y `tipo_dia`, o con `fecha_hora`. |
 | `POST /objetivo2/playlist` | Playlist del grupo en un contexto: percentil del gusto de cada miembro, mínimo del grupo y desempate por la media. Admite `n`, `duracion_min`, `excluir_artistas` y las opciones de abajo. |
+| `POST /objetivo2/entraria` | ¿Entraría en la playlist una canción que **nadie ha escuchado**? Basta con el `artista` (y si puedes el `album`). Para cada miembro, probabilidad de que la adopte (la vuelva a escuchar sin saltarla en 90 días) según su apertura a lo nuevo y lo que conoce del artista, en percentil frente a sus novedades de los últimos 12 meses; entra si el mínimo del grupo es 0,80 o más. Devuelve también los `huecos_novedades` de una playlist de 50. Modelo del notebook 08 (`api/novedades.py`). |
 | `GET /salud`, `/modelo`, `/personas`, `/contextos` | Estado, modelo cargado, miembros y contextos válidos. |
 
 Opciones de `POST /objetivo2/playlist`:
@@ -195,6 +197,11 @@ Opciones de `POST /objetivo2/playlist`:
 ```json
 POST /objetivo2/playlist
 {"personas": ["ander", "daniel"], "franja": 3, "tipo_dia": "fin_semana", "n": 30, "historial": "completo"}
+```
+
+```json
+POST /objetivo2/entraria
+{"personas": ["ander", "daniel"], "canciones": [{"artista": "Nombre del artista", "album": "Nombre del álbum"}]}
 ```
 
 Los errores devuelven siempre `{"error": ..., "detalle": ...}`: 403 si falta el token o no coincide, 404 si la persona o la canción no existen, 413 si el fichero es demasiado grande, 422 si la entrada no es válida (también sin consentimiento o con menos de 16 años) y 503 si el modelo no está listo.

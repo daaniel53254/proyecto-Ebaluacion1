@@ -17,7 +17,8 @@ from fastapi import FastAPI, File, Form, Header, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from api.esquemas import Error, PeticionPlaylist, PeticionPrediccion, RespuestaPlaylist, RespuestaPrediccion
+from api.esquemas import (Error, PeticionEntraria, PeticionPlaylist, PeticionPrediccion, RespuestaEntraria, RespuestaPlaylist,
+                          RespuestaPrediccion)
 from api import historiales, privacidad
 from api.caracteristicas import carpeta_historial_por_defecto
 from api.preparacion import Preparacion
@@ -65,7 +66,10 @@ app = FastAPI(
         "el mínimo de los percentiles y los empates se deshacen con la media. Con `\"historial\": \"completo\"` las "
         "candidatas salen de todo el historial (3 o más escuchas del grupo), el gusto mezcla lo real con lo previsto "
         "((no saltos + 5 × prevista) / (escuchas + 5)) y cada miembro conoce al menos un tercio de la lista; por defecto, "
-        "`\"18_meses\"`. Con `\"ignorar_horario\": true` no se filtra por franja ni tipo de día.\n\n"
+        "`\"18_meses\"`. Con `\"ignorar_horario\": true` no se filtra por franja ni tipo de día.\n"
+        "- **Objetivo 2 · canciones nuevas** · `POST /objetivo2/entraria`: ¿entraría en la playlist una canción que nadie "
+        "ha escuchado? Probabilidad de que cada miembro la adopte (notebook 08), en percentil frente a sus novedades; "
+        "entra si el mínimo del grupo es 0,80 o más.\n\n"
         "**Privacidad** · `GET /privacidad`: texto que acepta cada persona al subir su historial. Hace falta tener 16 años "
         "o más. Al subir un historial nuevo se devuelve un token (una sola vez): hay que enviarlo en la cabecera `X-Token` "
         "para borrar o sustituir ese historial.\n\n"
@@ -117,7 +121,7 @@ async def _error_interno(request: Request, e: Exception):
 def inicio():
     return {"proyecto": "Playlist perfecta para viajes en grupo", "documentacion": "/docs",
             "endpoints": ["/historiales", "/privacidad", "/preparacion", "/salud", "/modelo", "/personas", "/contextos",
-                          "/objetivo1/prediccion", "/objetivo2/playlist"]}
+                          "/objetivo1/prediccion", "/objetivo2/playlist", "/objetivo2/entraria"]}
 
 
 @app.get("/salud", tags=["información"])
@@ -259,3 +263,17 @@ def playlist(peticion: PeticionPlaylist):
     return servicio().playlist(peticion.personas, peticion.franja, peticion.tipo_dia, peticion.n,
                                peticion.duracion_min, peticion.excluir_artistas, peticion.historial,
                                detalle_miembros=peticion.detalle_miembros, desempate=peticion.desempate)
+
+
+@app.post("/objetivo2/entraria", tags=["objetivo 2"], response_model=RespuestaEntraria,
+          responses=RESPUESTAS_ERROR | {409: {"model": Error, "description": "el modelo de canciones nuevas no está preparado"}})
+def entraria(peticion: PeticionEntraria):
+    """¿Entraría en la playlist del grupo una canción que nadie ha escuchado? (notebook 08)
+
+    Basta con el artista (y si puedes el álbum). Para cada miembro se calcula la probabilidad de que la **adopte**
+    (la vuelva a escuchar sin saltarla en 90 días) según lo abierto que es a lo nuevo, cuánto conoce al artista y al
+    álbum y si el resto del grupo los conoce. Esa probabilidad se compara con sus canciones nuevas de los últimos
+    12 meses (percentil); el gusto del grupo es el mínimo y **entra si es 0,80 o más**. Las novedades ocupan como
+    mucho `huecos_novedades` puestos en una playlist de 50."""
+    return servicio().entraria(peticion.personas, [c.model_dump() for c in peticion.canciones],
+                               peticion.franja, peticion.tipo_dia)
