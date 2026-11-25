@@ -20,7 +20,7 @@ const Portada = () => {
           aria-hidden
           className="absolute inset-x-0 -top-40 -z-10 mx-auto h-96 max-w-3xl rounded-full bg-acento-suave/60 blur-3xl"
         />
-        <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 pt-12 pb-16 sm:px-6 sm:pt-20 lg:grid-cols-12 lg:items-center lg:gap-10 lg:pb-24">
+        <div className="mx-auto grid w-full max-w-7xl gap-12 px-4 pt-12 pb-16 sm:px-6 lg:px-8 sm:pt-20 lg:grid-cols-12 lg:items-center lg:gap-10 lg:pb-24">
           <div className="flex animate-aparecer flex-col items-start gap-6 lg:col-span-7">
             <Etiqueta>NPD Entertainment · Viajes en grupo</Etiqueta>
             <h1 className="font-display text-titular font-bold tracking-titular">
@@ -45,17 +45,17 @@ const Portada = () => {
       </section>
 
       <section aria-labelledby="como-funciona" className="border-t border-linea">
-        <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-12 lg:py-24">
+        <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:px-8 lg:grid-cols-12 lg:py-24">
           <div className="flex flex-col gap-4 lg:col-span-4">
             <Etiqueta>Cómo funciona</Etiqueta>
             <h2 id="como-funciona" className="font-display text-seccion font-bold tracking-tight">
-              Tres pasos y a la carretera
+              Cuatro pasos y a la carretera
             </h2>
             <p className="text-tinta-2">
               Pedir el historial a Spotify es lo único que tarda. Lo demás son unos minutos.
             </p>
           </div>
-          <ol className="grid gap-4 sm:grid-cols-3 lg:col-span-8">
+          <ol className="grid gap-4 sm:grid-cols-2 lg:col-span-8">
             {PASOS.map((paso) => {
               return (
                 <li key={paso.ruta}>

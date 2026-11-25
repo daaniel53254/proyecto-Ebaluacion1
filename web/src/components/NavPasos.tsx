@@ -41,7 +41,7 @@ export const NavPasos: FC = () => {
 
   return (
     <nav aria-label="Pasos" className="w-full sm:w-auto">
-      <ol className="grid grid-cols-3 gap-1 sm:flex sm:items-center sm:gap-1">
+      <ol className="grid grid-cols-2 gap-1 sm:flex sm:items-center sm:gap-1">
         {PASOS.map((paso) => {
           return (
             <li key={paso.ruta}>

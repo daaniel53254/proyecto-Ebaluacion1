@@ -3,28 +3,42 @@
 import { type FC, useId } from "react";
 
 import { SelectorArtistas } from "@/components/playlist/SelectorArtistas";
+import { SelectorCanciones } from "@/components/playlist/SelectorCanciones";
 import { boton, tarjeta } from "@/components/ui/estilos";
 import { Etiqueta } from "@/components/ui/Etiqueta";
-import type { AccionesFiltros } from "@/hooks/usePlaylist";
+import type { AccionesFiltros } from "@/hooks/useFiltrosGrupo";
 import { cn } from "@/lib/cn";
 import {
-  FRANJAS,
   type Filtros as ValoresFiltros,
-  franjaDe,
+  MIN_PERSONAS,
   MINUTOS,
+  MOMENTOS,
+  type Momento,
+  momentoDe,
   numeroCancionesDe,
   OPCIONES_CANCIONES,
 } from "@/lib/filtros";
 import { duracionTotal } from "@/lib/formato";
 import { colorEnElModelo } from "@/lib/resumen";
+import type { ArtistaGrupo } from "@/lib/tipos";
+
+// El botón del final: «Generar playlist» en el paso 3 y «Comprobar» en «¿Entraría?».
+export type AccionFiltros = {
+  texto: string;
+  textoOcupado: string;
+  ayuda: string;
+  ocupado: boolean;
+  desactivada?: boolean;
+  alPulsar: () => void;
+};
 
 type FiltrosProps = {
   filtros: ValoresFiltros;
   acciones: AccionesFiltros;
   personas: string[];
-  artistas: string[];
-  generando: boolean;
-  alGenerar: () => void;
+  artistas: ArtistaGrupo[];
+  accion: AccionFiltros;
+  titulo?: string;
 };
 
 const CAMPO = "min-h-11 w-full rounded-2xl border border-linea-2 bg-fondo px-4 text-base text-tinta";
@@ -81,6 +95,12 @@ type QuienViajaProps = {
   alAlternar: (persona: string) => void;
 };
 
+const textoQuienViaja = (elegidas: number, total: number): string => {
+  if (total < MIN_PERSONAS) return `Hacen falta al menos ${MIN_PERSONAS} personas en el modelo: que suba su historial alguien más.`;
+  return `${elegidas} de ${total} en el grupo · como mínimo, ${MIN_PERSONAS} personas.`;
+};
+
+// Cada persona es un interruptor: elegida, con su color de fondo y una marca; fuera, con borde discontinuo y apagada.
 const QuienViaja: FC<QuienViajaProps> = ({ personas, elegidas, alAlternar }) => {
   return (
     <fieldset className="flex flex-col gap-3">
@@ -88,58 +108,67 @@ const QuienViaja: FC<QuienViajaProps> = ({ personas, elegidas, alAlternar }) => 
       <div className="flex flex-wrap gap-2">
         {personas.map((persona) => {
           const elegida = elegidas.includes(persona);
-          const ultima = elegida && elegidas.length === 1;
+          const bloqueada = elegida && elegidas.length <= MIN_PERSONAS;
+          const color = colorEnElModelo(personas, persona);
           return (
             <button
               key={persona}
               type="button"
               aria-pressed={elegida}
-              aria-disabled={ultima}
+              aria-disabled={bloqueada}
+              title={bloqueada ? `Como mínimo, ${MIN_PERSONAS} personas` : undefined}
               onClick={() => alAlternar(persona)}
               className={cn(
-                "inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors",
-                elegida ? "border-tinta-2 bg-superficie-2 text-tinta" : "border-linea text-apagado hover:border-linea-2",
-                ultima && "cursor-not-allowed",
+                "inline-flex min-h-11 items-center gap-2 rounded-full border-2 px-4 text-sm font-semibold transition-colors",
+                elegida ? "text-tinta" : "border-dashed border-linea-2 text-apagado line-through hover:text-tinta-2",
+                bloqueada && "cursor-not-allowed",
               )}
+              style={
+                elegida
+                  ? { borderColor: color, backgroundColor: `color-mix(in srgb, ${color} 22%, transparent)` }
+                  : undefined
+              }
             >
               <span
                 aria-hidden
-                className={cn("size-2.5 rounded-full", !elegida && "opacity-40")}
-                style={{ backgroundColor: colorEnElModelo(personas, persona) }}
-              />
+                className="grid size-5 place-items-center rounded-full text-xs font-bold"
+                style={elegida ? { backgroundColor: color, color: "var(--npd-negro)" } : { border: `2px solid ${color}` }}
+              >
+                {elegida ? "✓" : ""}
+              </span>
               {persona}
             </button>
           );
         })}
       </div>
-      <p className="text-xs text-apagado">Como mínimo, una persona.</p>
+      <p className="text-xs text-apagado">{textoQuienViaja(elegidas.length, personas.length)}</p>
     </fieldset>
   );
 };
 
-type FranjaProps = {
-  franja: number | null;
-  alCambiar: (franja: number | null) => void;
+type MomentoDelDiaProps = {
+  momento: Momento | null;
+  alCambiar: (momento: Momento | null) => void;
 };
 
-const Franja: FC<FranjaProps> = ({ franja, alCambiar }) => {
+const MomentoDelDia: FC<MomentoDelDiaProps> = ({ momento, alCambiar }) => {
   const id = useId();
   return (
     <div className="flex flex-col gap-3">
       <label htmlFor={id} className={TITULO}>
-        Franja
+        Momento del día
       </label>
-      <select id={id} value={franja ?? ""} onChange={(e) => alCambiar(franjaDe(e.target.value))} className={CAMPO}>
-        <option value="">Sin importar</option>
-        {FRANJAS.map((horas, indice) => {
+      <select id={id} value={momento ?? ""} onChange={(e) => alCambiar(momentoDe(e.target.value))} className={CAMPO}>
+        <option value="">No importa</option>
+        {MOMENTOS.map((m) => {
           return (
-            <option key={horas} value={indice}>
-              {horas} h
+            <option key={m.valor} value={m.valor}>
+              {m.texto} ({m.horas})
             </option>
           );
         })}
       </select>
-      <p className="text-xs text-apagado">«Sin importar» usa todas las escuchas y pone primero lo que conoce todo el grupo.</p>
+      <p className="text-xs text-apagado">«No importa» usa todas las escuchas y pone primero lo que conoce todo el grupo.</p>
     </div>
   );
 };
@@ -212,19 +241,20 @@ const Longitud: FC<LongitudProps> = ({ filtros, acciones }) => {
 };
 
 // Los mismos filtros que la pestaña de playlist del panel. Cambiarlos no regenera la lista: hay que pulsar el botón.
-export const Filtros: FC<FiltrosProps> = ({ filtros, acciones, personas, artistas, generando, alGenerar }) => {
-  const sinHorario = filtros.franja === null;
+export const Filtros: FC<FiltrosProps> = ({ filtros, acciones, personas, artistas, accion, titulo }) => {
+  const sinHorario = filtros.momento === null;
+  const pocasPersonas = personas.length < MIN_PERSONAS;
   return (
     <section aria-labelledby="titulo-filtros" className={tarjeta({ class: "flex flex-col gap-8 p-6 sm:p-8" })}>
       <div className="flex flex-col gap-2">
         <Etiqueta>Filtros</Etiqueta>
         <h2 id="titulo-filtros" className="font-display text-2xl font-bold tracking-tight">
-          ¿Quién va y cuánto dura?
+          {titulo ?? "¿Quién va y cuánto dura?"}
         </h2>
       </div>
       <QuienViaja personas={personas} elegidas={filtros.personas} alAlternar={acciones.alternarPersona} />
       <div className="grid gap-8 md:grid-cols-3">
-        <Franja franja={filtros.franja} alCambiar={acciones.elegirFranja} />
+        <MomentoDelDia momento={filtros.momento} alCambiar={acciones.elegirMomento} />
         <Segmentos
           leyenda="Día"
           opciones={[
@@ -234,26 +264,33 @@ export const Filtros: FC<FiltrosProps> = ({ filtros, acciones, personas, artista
           valor={filtros.tipoDia}
           alCambiar={acciones.elegirTipoDia}
           desactivado={sinHorario}
-          ayuda={sinHorario ? "Elige una franja para filtrar por día." : "Escuchas de ese tipo de día."}
+          ayuda={sinHorario ? "Elige un momento del día para filtrar por día." : "Escuchas de ese tipo de día."}
         />
         <Longitud filtros={filtros} acciones={acciones} />
       </div>
-      <SelectorArtistas
-        artistas={artistas}
-        elegidos={filtros.quitar}
-        alElegir={acciones.sumarArtista}
-        alQuitar={acciones.quitarArtista}
-      />
+      <div className="grid gap-8 md:grid-cols-2">
+        <SelectorArtistas
+          artistas={artistas}
+          elegidos={filtros.quitar}
+          alElegir={acciones.sumarArtista}
+          alQuitar={acciones.quitarArtista}
+        />
+        <SelectorCanciones
+          elegidas={filtros.quitarCanciones}
+          alElegir={acciones.sumarCancion}
+          alQuitar={acciones.quitarCancion}
+        />
+      </div>
       <div className="flex flex-wrap items-center gap-4 border-t border-linea pt-6">
         <button
           type="button"
-          onClick={alGenerar}
-          disabled={generando}
-          className={boton({ intencion: "principal", class: "disabled:opacity-60" })}
+          onClick={accion.alPulsar}
+          disabled={accion.ocupado || accion.desactivada === true || pocasPersonas}
+          className={boton({ intencion: "principal", class: "disabled:cursor-not-allowed disabled:opacity-60" })}
         >
-          {generando ? "Generando…" : "Generar playlist"}
+          {accion.ocupado ? accion.textoOcupado : accion.texto}
         </button>
-        <p className="text-sm text-apagado">La lista no cambia hasta que la vuelves a generar.</p>
+        <p className="text-sm text-apagado">{accion.ayuda}</p>
       </div>
     </section>
   );

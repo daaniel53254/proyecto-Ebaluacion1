@@ -1,24 +1,32 @@
 "use client";
 
-import { type FC, useId } from "react";
+import { type FC, useId, useMemo } from "react";
 
 import { useSelectorArtistas } from "@/hooks/useSelectorArtistas";
 import { cn } from "@/lib/cn";
 import { MAX_ARTISTAS_QUITADOS } from "@/lib/filtros";
+import type { ArtistaGrupo } from "@/lib/tipos";
 
 type SelectorArtistasProps = {
-  artistas: string[];
+  // Solo los artistas que alguien del modelo tiene en su historial, con sus escuchas por persona.
+  artistas: ArtistaGrupo[];
   elegidos: string[];
   alElegir: (artista: string) => void;
   alQuitar: (artista: string) => void;
 };
 
+// «aitor, daniel»: quién lo tiene en su historial, de más a menos escuchas.
+const deQuien = (duenos: ReadonlyMap<string, string>, artista: string): string => {
+  return duenos.get(artista) ?? "";
+};
+
 type ChipsProps = {
   elegidos: string[];
+  duenos: ReadonlyMap<string, string>;
   alQuitar: (artista: string) => void;
 };
 
-const Chips: FC<ChipsProps> = ({ elegidos, alQuitar }) => {
+const Chips: FC<ChipsProps> = ({ elegidos, duenos, alQuitar }) => {
   if (elegidos.length === 0) return null;
   return (
     <ul aria-label="Artistas quitados" className="flex flex-wrap gap-2">
@@ -32,6 +40,9 @@ const Chips: FC<ChipsProps> = ({ elegidos, alQuitar }) => {
               className="inline-flex min-h-9 max-w-full items-center gap-2 rounded-full border border-linea-2 bg-superficie-2 px-3 text-sm text-tinta transition-colors hover:border-tinta-2"
             >
               <span className="truncate">{artista}</span>
+              {deQuien(duenos, artista) !== "" && (
+                <span className="shrink-0 text-xs text-apagado">{deQuien(duenos, artista)}</span>
+              )}
               <span aria-hidden className="text-apagado">
                 ✕
               </span>
@@ -46,7 +57,12 @@ const Chips: FC<ChipsProps> = ({ elegidos, alQuitar }) => {
 // «Quitar artistas»: buscador sobre los artistas del catálogo (pueden ser miles), con 50 sugerencias como mucho.
 export const SelectorArtistas: FC<SelectorArtistasProps> = (props) => {
   const { artistas, elegidos } = props;
-  const selector = useSelectorArtistas(props);
+  const nombres = useMemo(() => artistas.map((a) => a.artista), [artistas]);
+  const duenos = useMemo(
+    () => new Map(artistas.map((a) => [a.artista, Object.keys(a.personas).join(", ")] as const)),
+    [artistas],
+  );
+  const selector = useSelectorArtistas({ ...props, artistas: nombres });
   const id = useId();
   const idLista = `${id}-lista`;
   const idAyuda = `${id}-ayuda`;
@@ -96,19 +112,23 @@ export const SelectorArtistas: FC<SelectorArtistasProps> = (props) => {
                 onMouseDown={(evento) => evento.preventDefault()}
                 onMouseEnter={() => selector.marcar(indice)}
                 onClick={() => selector.elegir(artista)}
-                className={cn("cursor-pointer truncate px-4 py-2 text-sm text-tinta-2", activa && "bg-fondo text-tinta")}
+                className={cn(
+                  "flex cursor-pointer items-baseline justify-between gap-3 px-4 py-2 text-sm text-tinta-2",
+                  activa && "bg-fondo text-tinta",
+                )}
               >
-                {artista}
+                <span className="truncate">{artista}</span>
+                <span className="shrink-0 text-xs text-apagado">{deQuien(duenos, artista)}</span>
               </li>
             );
           })}
         </ul>
       </div>
       <p id={idAyuda} className="text-xs text-apagado">
-        {artistas.length.toLocaleString("es-ES")} artistas en el catálogo. Escribe para buscar; flechas e Intro
-        para elegir.
+        {artistas.length.toLocaleString("es-ES")} artistas que alguien del grupo tiene en su historial; al lado, de
+        quién son. Escribe para buscar; flechas e Intro para elegir.
       </p>
-      <Chips elegidos={elegidos} alQuitar={props.alQuitar} />
+      <Chips elegidos={elegidos} duenos={duenos} alQuitar={props.alQuitar} />
     </div>
   );
 };

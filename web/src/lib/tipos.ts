@@ -60,10 +60,12 @@ export type Persona = {
   tasa_no_salto: number;
 };
 
+export type Origen = "real" | "prevista";
+
 export type GustoMiembro = {
   gusto: number;
   percentil: number;
-  origen: "real" | "prevista";
+  origen: Origen;
 };
 
 export type CancionPlaylist = {
@@ -93,8 +95,55 @@ export type PeticionPlaylist = {
   personas: string[];
   ignorar_horario: boolean;
   franja?: number;
+  // Varias franjas seguidas (un momento del día): la API suma sus escuchas y promedia la predicción.
+  franjas?: number[];
   tipo_dia?: TipoDia;
   n?: number | null;
   duracion_min?: number | null;
   excluir_artistas: string[];
+  excluir_canciones: string[];
+};
+
+// Artista del catálogo con las escuchas de cada persona que lo tiene en su historial.
+export type ArtistaGrupo = {
+  artista: string;
+  personas: Record<string, number>;
+};
+
+// Canción que alguien del grupo ha escuchado, con las escuchas de cada persona que la tiene en su historial.
+export type CancionCatalogo = {
+  track_id: string;
+  cancion: string;
+  artista: string;
+  duracion_s: number | null;
+  personas: Record<string, number>;
+};
+
+export type PeticionCancion = PeticionPlaylist & { track_id: string };
+
+export type GustoCancion = {
+  // Real si tiene 5 o más escuchas en el contexto; si no, la prevista por el modelo (objetivo 1).
+  tasa_no_salto: number;
+  percentil: number;
+  origen: Origen;
+  escuchas: number;
+};
+
+export type RespuestaCancion = {
+  track_id: string;
+  cancion: string;
+  artista: string;
+  personas: string[];
+  franja: number | null;
+  franja_horas: string;
+  tipo_dia: string;
+  entra: boolean;
+  artista_excluido: boolean;
+  cancion_excluida: boolean;
+  posicion: number | null;
+  n_candidatas: number;
+  n_canciones_playlist: number;
+  gusto_grupo: number | null;
+  conocida_por_todos: boolean;
+  miembros: Record<string, GustoCancion>;
 };

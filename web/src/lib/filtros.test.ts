@@ -4,48 +4,55 @@ import {
   aPeticion,
   ajustarPersonas,
   alternarPersona,
-  FRANJAS,
+  filtrosGuardados,
   filtrosIniciales,
-  franjaDe,
   MAX_ARTISTAS_QUITADOS,
+  MOMENTOS,
+  momentoDe,
   numeroCancionesDe,
   quitarArtista,
+  quitarCancion,
   sumarArtista,
+  sumarCancion,
 } from "@/lib/filtros";
 
 describe("filtrosIniciales", () => {
   it("marca a todas las personas, sin horario, fin de semana y 30 canciones", () => {
     expect(filtrosIniciales(["ana", "beñat"])).toEqual({
       personas: ["ana", "beñat"],
-      franja: null,
+      momento: null,
       tipoDia: "fin_semana",
       modo: "canciones",
       canciones: 30,
       minutos: 120,
       quitar: [],
+      quitarCanciones: [],
     });
   });
 
-  it("las franjas son las seis de cuatro horas", () => {
-    expect(FRANJAS).toEqual(["00-04", "04-08", "08-12", "12-16", "16-20", "20-24"]);
+  it("los momentos del día juntan las seis franjas de 4 horas de dos en dos, sin repetir ninguna", () => {
+    expect(MOMENTOS.map((m) => m.texto)).toEqual(["Mañana", "Tarde", "Noche"]);
+    const todas = MOMENTOS.flatMap((m) => [...m.franjas]).sort();
+    expect(todas).toEqual([0, 1, 2, 3, 4, 5]);
   });
 });
 
 describe("aPeticion", () => {
-  it("sin horario manda ignorar_horario y no manda franja", () => {
+  it("con «No importa» manda ignorar_horario y no manda franjas", () => {
     expect(aPeticion(filtrosIniciales(["ana", "beñat"]))).toEqual({
       personas: ["ana", "beñat"],
       ignorar_horario: true,
       n: 30,
       duracion_min: null,
       excluir_artistas: [],
+      excluir_canciones: [],
     });
   });
 
-  it("con franja manda franja y tipo_dia", () => {
-    expect(aPeticion({ ...filtrosIniciales(["ana"]), franja: 3, tipoDia: "laborable" })).toMatchObject({
+  it("con un momento del día manda sus franjas y el tipo de día", () => {
+    expect(aPeticion({ ...filtrosIniciales(["ana"]), momento: "noche", tipoDia: "laborable" })).toMatchObject({
       ignorar_horario: false,
-      franja: 3,
+      franjas: [5, 0],
       tipo_dia: "laborable",
     });
   });
@@ -70,19 +77,27 @@ describe("alternarPersona", () => {
     expect(alternarPersona(sinBenat, "beñat", todas).personas).toEqual(["ana", "beñat", "carla"]);
   });
 
-  it("no deja el grupo vacío", () => {
-    const filtros = filtrosIniciales(["ana"]);
-    expect(alternarPersona(filtros, "ana", ["ana"]).personas).toEqual(["ana"]);
+  it("no deja menos de dos personas", () => {
+    const todas = ["ana", "beñat", "carla"];
+    const dos = alternarPersona(filtrosIniciales(todas), "carla", todas);
+    expect(alternarPersona(dos, "ana", todas).personas).toEqual(["ana", "beñat"]);
   });
 });
 
 describe("ajustarPersonas", () => {
-  it("quita a quien ya no está en el modelo", () => {
-    expect(ajustarPersonas(filtrosIniciales(["ana", "beñat"]), ["ana"]).personas).toEqual(["ana"]);
+  it("quita a quien ya no está en el modelo si siguen quedando dos", () => {
+    expect(ajustarPersonas(filtrosIniciales(["ana", "beñat", "carla"]), ["ana", "beñat"]).personas).toEqual([
+      "ana",
+      "beñat",
+    ]);
   });
 
-  it("si no queda nadie de los elegidos, marca a todos los que hay", () => {
-    expect(ajustarPersonas(filtrosIniciales(["ana"]), ["beñat", "carla"]).personas).toEqual(["beñat", "carla"]);
+  it("si de los elegidos quedan menos de dos, marca a todos los que hay", () => {
+    expect(ajustarPersonas(filtrosIniciales(["ana", "dani"]), ["ana", "beñat", "carla"]).personas).toEqual([
+      "ana",
+      "beñat",
+      "carla",
+    ]);
   });
 });
 
@@ -99,15 +114,44 @@ describe("artistas que se quitan", () => {
   });
 });
 
+describe("canciones que se quitan", () => {
+  const cancion = { track_id: "t1", cancion: "Malamente", artista: "Rosalía", duracion_s: 150, personas: { ana: 3 } };
+
+  it("se mandan por su track_id, sin repetir, y se pueden volver a poner", () => {
+    const filtros = sumarCancion(sumarCancion(filtrosIniciales(["ana"]), cancion), cancion);
+    expect(aPeticion(filtros).excluir_canciones).toEqual(["t1"]);
+    expect(quitarCancion(filtros, "t1").quitarCanciones).toEqual([]);
+  });
+
+  it("se recuperan de la sesión con su título y de quién son", () => {
+    const filtros = { ...filtrosIniciales(["ana", "beñat"]), quitarCanciones: [cancion] };
+    expect(filtrosGuardados(JSON.stringify(filtros))?.quitarCanciones).toEqual([cancion]);
+  });
+});
+
 describe("lectura de los desplegables", () => {
   it("numeroCancionesDe solo acepta las opciones del panel", () => {
     expect(numeroCancionesDe("50")).toBe(50);
     expect(numeroCancionesDe("40")).toBeUndefined();
   });
 
-  it("franjaDe pasa «Sin importar» a null", () => {
-    expect(franjaDe("4")).toBe(4);
-    expect(franjaDe("")).toBeNull();
-    expect(franjaDe("9")).toBeNull();
+  it("momentoDe pasa «No importa» a null", () => {
+    expect(momentoDe("tarde")).toBe("tarde");
+    expect(momentoDe("")).toBeNull();
+    expect(momentoDe("madrugada")).toBeNull();
+  });
+});
+
+describe("filtrosGuardados", () => {
+  it("recupera los filtros guardados en la sesión", () => {
+    const filtros = { ...filtrosIniciales(["ana", "beñat"]), momento: "tarde" as const, quitar: ["Rosalía"] };
+    expect(filtrosGuardados(JSON.stringify(filtros))).toEqual(filtros);
+  });
+
+  it("lo que no encaja vuelve al valor inicial y un texto roto no devuelve nada", () => {
+    const raros = filtrosGuardados(JSON.stringify({ personas: [1], momento: "madrugada", canciones: 40, minutos: 5 }));
+    expect(raros).toEqual(filtrosIniciales([]));
+    expect(filtrosGuardados("{roto")).toBeNull();
+    expect(filtrosGuardados(null)).toBeNull();
   });
 });

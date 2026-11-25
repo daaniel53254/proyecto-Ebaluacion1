@@ -7,7 +7,7 @@ import { NavPasos } from "@/components/NavPasos";
 export const Cabecera: FC = () => {
   return (
     <header className="sticky top-0 z-30 border-b border-linea bg-fondo/85 backdrop-blur-md">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6 sm:py-3">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6 lg:px-8 sm:py-3">
         <Link
           href="/"
           className="flex min-h-11 items-center gap-3 self-start rounded-full pr-2 sm:self-auto"

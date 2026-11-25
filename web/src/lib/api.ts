@@ -1,21 +1,28 @@
 // Cliente de la API FastAPI. Todas las llamadas se hacen desde el navegador.
 import type {
+  ArtistaGrupo,
+  CancionCatalogo,
   EstadoPreparacion,
   Historial,
   Persona,
+  PeticionCancion,
   PeticionPlaylist,
   Playlist,
+  RespuestaCancion,
   RespuestaSubida,
   Salud,
 } from "@/lib/tipos";
 import {
   type Comprobacion,
   esEstadoPreparacion,
+  esListaArtistasGrupo,
+  esListaCancionesCatalogo,
   esListaHistoriales,
   esListaPersonas,
   esListaTextos,
   esObjeto,
   esPlaylist,
+  esRespuestaCancion,
   esRespuestaSubida,
   esSalud,
 } from "@/lib/validacion";
@@ -83,6 +90,24 @@ export const obtenerPersonas = (): Promise<Persona[]> => {
 
 export const obtenerArtistas = (): Promise<string[]> => {
   return pedir("/artistas", esListaTextos);
+};
+
+// Solo los artistas que alguien del modelo ha escuchado, con las escuchas de cada persona.
+export const obtenerArtistasPorPersona = (): Promise<ArtistaGrupo[]> => {
+  return pedir("/artistas?por_persona=true", esListaArtistasGrupo);
+};
+
+export const buscarCanciones = (texto: string, senal?: AbortSignal): Promise<CancionCatalogo[]> => {
+  const consulta = new URLSearchParams({ buscar: texto, limite: "20" });
+  return pedir(`/canciones?${consulta.toString()}`, esListaCancionesCatalogo, { signal: senal });
+};
+
+export const consultarCancion = (peticion: PeticionCancion): Promise<RespuestaCancion> => {
+  return pedir("/objetivo2/cancion", esRespuestaCancion, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(peticion),
+  });
 };
 
 export const obtenerPreparacion = (): Promise<EstadoPreparacion> => {

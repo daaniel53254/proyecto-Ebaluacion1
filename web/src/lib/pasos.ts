@@ -1,7 +1,7 @@
-// Los tres pasos de la web: los usan la cabecera (navegación) y la portada (tarjetas).
+// Los cuatro pasos de la web: los usan la cabecera (navegación) y la portada (tarjetas).
 export type Paso = {
-  numero: 1 | 2 | 3;
-  ruta: "/tutorial" | "/subir" | "/playlist";
+  numero: 1 | 2 | 3 | 4;
+  ruta: "/tutorial" | "/subir" | "/playlist" | "/cancion";
   titulo: string;
   descripcion: string;
 };
@@ -27,5 +27,12 @@ export const PASOS = [
     titulo: "Vuestra playlist",
     descripcion:
       "Elegid quién viaja y cuánto dura el trayecto. Cada canción vale lo que le gusta al que menos le gusta.",
+  },
+  {
+    numero: 4,
+    ruta: "/cancion",
+    titulo: "¿Entraría?",
+    descripcion:
+      "Elige una canción y mira si entraría en vuestra playlist y cuántas veces la escucharía cada uno sin saltarla.",
   },
 ] as const satisfies readonly Paso[];

@@ -3,13 +3,17 @@
 // La API valida con Pydantic lo que devuelve; aquí solo se evita tratar como válida una respuesta ajena
 // (otro servicio en el mismo puerto, un proxy, una versión antigua).
 import type {
+  ArtistaGrupo,
+  CancionCatalogo,
   CancionPlaylist,
   EstadoPreparacion,
+  GustoCancion,
   GustoMiembro,
   Historial,
   Persona,
   Playlist,
   RespuestaSubida,
+  RespuestaCancion,
   ResumenSubida,
   Salud,
 } from "@/lib/tipos";
@@ -111,6 +115,62 @@ const esGustoMiembro = (valor: unknown): valor is GustoMiembro => {
 
 const esGustosDeMiembros = (valor: unknown): valor is Record<string, GustoMiembro> => {
   return esObjeto(valor) && Object.values(valor).every(esGustoMiembro);
+};
+
+const esMapaDeEscuchas = (valor: unknown): valor is Record<string, number> => {
+  return esObjeto(valor) && Object.values(valor).every((n) => typeof n === "number");
+};
+
+const esArtistaGrupo = (valor: unknown): valor is ArtistaGrupo => {
+  return esObjeto(valor) && typeof valor.artista === "string" && esMapaDeEscuchas(valor.personas);
+};
+
+export const esListaArtistasGrupo = esListaDe(esArtistaGrupo);
+
+const esCancionCatalogo = (valor: unknown): valor is CancionCatalogo => {
+  if (!esObjeto(valor)) return false;
+  return (
+    typeof valor.track_id === "string" &&
+    typeof valor.cancion === "string" &&
+    typeof valor.artista === "string" &&
+    esNumeroONulo(valor.duracion_s) &&
+    esMapaDeEscuchas(valor.personas)
+  );
+};
+
+export const esListaCancionesCatalogo = esListaDe(esCancionCatalogo);
+
+const esGustoCancion = (valor: unknown): valor is GustoCancion => {
+  if (!esObjeto(valor)) return false;
+  return (
+    typeof valor.tasa_no_salto === "number" &&
+    typeof valor.percentil === "number" &&
+    typeof valor.escuchas === "number" &&
+    (valor.origen === "real" || valor.origen === "prevista")
+  );
+};
+
+export const esRespuestaCancion: Comprobacion<RespuestaCancion> = (valor): valor is RespuestaCancion => {
+  if (!esObjeto(valor)) return false;
+  return (
+    typeof valor.track_id === "string" &&
+    typeof valor.cancion === "string" &&
+    typeof valor.artista === "string" &&
+    esListaTextos(valor.personas) &&
+    esNumeroONulo(valor.franja) &&
+    typeof valor.franja_horas === "string" &&
+    typeof valor.tipo_dia === "string" &&
+    typeof valor.entra === "boolean" &&
+    typeof valor.artista_excluido === "boolean" &&
+    typeof valor.cancion_excluida === "boolean" &&
+    esNumeroONulo(valor.posicion) &&
+    typeof valor.n_candidatas === "number" &&
+    typeof valor.n_canciones_playlist === "number" &&
+    esNumeroONulo(valor.gusto_grupo) &&
+    typeof valor.conocida_por_todos === "boolean" &&
+    esObjeto(valor.miembros) &&
+    Object.values(valor.miembros).every(esGustoCancion)
+  );
 };
 
 export const esCancionPlaylist: Comprobacion<CancionPlaylist> = (valor): valor is CancionPlaylist => {

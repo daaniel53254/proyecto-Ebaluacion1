@@ -74,7 +74,7 @@ type ContenidoProps = {
   carga: EstadoCarga;
 };
 
-const SinDatos: FC<ContenidoProps> = ({ carga }) => {
+export const SinDatos: FC<ContenidoProps> = ({ carga }) => {
   switch (carga.tipo) {
     case "cargando":
       return <p className="text-tinta-2">Cargando las personas del modelo…</p>;
@@ -115,8 +115,13 @@ export const PanelPlaylist: FC = () => {
         acciones={acciones}
         personas={carga.personas}
         artistas={carga.artistas}
-        generando={resultado.tipo === "generando"}
-        alGenerar={() => void generar()}
+        accion={{
+          texto: "Generar playlist",
+          textoOcupado: "Generando…",
+          ayuda: "La lista no cambia hasta que la vuelves a generar.",
+          ocupado: resultado.tipo === "generando",
+          alPulsar: () => void generar(),
+        }}
       />
       <ZonaResultado resultado={resultado} personasModelo={carga.personas} />
     </div>

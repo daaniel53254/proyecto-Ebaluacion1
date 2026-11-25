@@ -78,6 +78,7 @@ describe("cliente de la API", () => {
       n: 30,
       duracion_min: null,
       excluir_artistas: ["Bad Bunny"],
+      excluir_canciones: [],
     };
 
     await pedirPlaylist(peticion);

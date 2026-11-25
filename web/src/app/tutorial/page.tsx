@@ -28,7 +28,7 @@ const Tutorial = () => {
   return (
     <>
       <section aria-labelledby="titulo-tutorial">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pt-12 pb-12 sm:px-6 sm:pt-16">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-4 pt-12 pb-12 sm:px-6 lg:px-8 sm:pt-16">
           <div className="flex animate-aparecer flex-col items-start gap-5 lg:max-w-3xl">
             <Etiqueta>Tutorial</Etiqueta>
             <h1 id="titulo-tutorial" className="font-display text-titular font-bold tracking-titular">
@@ -55,7 +55,7 @@ const Tutorial = () => {
       </section>
 
       <section aria-label="Pasos para pedir el historial">
-        <ol className="mx-auto flex w-full max-w-6xl flex-col px-4 pb-16 sm:px-6 lg:pb-24">
+        <ol className="mx-auto flex w-full max-w-7xl flex-col px-4 pb-16 sm:px-6 lg:px-8 lg:pb-24">
           {PASOS_TUTORIAL.map((paso) => {
             return <Paso key={paso.numero} paso={paso} />;
           })}
@@ -63,7 +63,7 @@ const Tutorial = () => {
       </section>
 
       <section aria-labelledby="que-datos" className="border-t border-linea">
-        <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-12 lg:py-24">
+        <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:px-8 lg:grid-cols-12 lg:py-24">
           <div className="flex flex-col items-start gap-4 lg:col-span-5">
             <Etiqueta>Tus datos</Etiqueta>
             <h2 id="que-datos" className="font-display text-seccion font-bold tracking-tight">
