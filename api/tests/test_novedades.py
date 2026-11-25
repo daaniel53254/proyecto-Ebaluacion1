@@ -67,6 +67,25 @@ def test_artista_preferido_puntua_mas(servicio_novedades):
     assert r["franja"] is None and "12 contextos" in r["regla"]
 
 
+def test_da_igual_como_se_escriba_el_artista(servicio_novedades):
+    """«a07», « A07 » y «A07» son el mismo artista: mismas escuchas y misma probabilidad."""
+    r = servicio_novedades.entraria(GRUPO, [{"artista": "A07"}, {"artista": "a07"}, {"artista": "  A07 "}])
+    for p in GRUPO:
+        prob = {x["miembros"][p]["probabilidad_adopcion"] for x in r["resultados"]}
+        escuchas = {x["miembros"][p]["escuchas_artista"] for x in r["resultados"]}
+        assert len(prob) == 1 and len(escuchas) == 1
+    assert r["resultados"][0]["miembros"]["ana"]["escuchas_artista"] > 0
+
+
+def test_grafia_del_historial(historia):
+    _, _, T = historia
+    album = T["alb"].loc[T["alb"]["artista"] == "A00", "album"].iloc[0]
+    q = pd.DataFrame({"track_id": ["x", "z"], "artista": [" a00", "Nadie Conocido"], "album": [album.upper(), "?"]})
+    out = novedades.con_grafia_del_historial(T, q)
+    assert list(out["artista"]) == ["A00", "Nadie Conocido"]            # lo desconocido se deja como viene
+    assert out.loc[0, "album"] == album
+
+
 def test_con_contexto_y_cancion_del_catalogo(servicio_novedades):
     tid = servicio_novedades.catalogo_completo.index[0]
     r = servicio_novedades.entraria(GRUPO, [{"track_id": tid}], franja=3, tipo_dia="fin_semana")
