@@ -182,6 +182,61 @@ class RespuestaPlaylist(BaseModel):
     canciones: list[CancionPlaylist]
 
 
+class CancionNueva(BaseModel):
+    track_id: Optional[str] = Field(None, min_length=1, max_length=64,
+                                    description="id de Spotify si lo sabes; si está en el catálogo no hace falta nada más")
+    artista: Optional[str] = Field(None, min_length=1, max_length=200,
+                                   description="obligatorio si la canción no está en el catálogo (escrito como en Spotify)")
+    album: Optional[str] = Field(None, max_length=200)
+    cancion: Optional[str] = Field(None, max_length=200, description="solo para mostrarla en la respuesta")
+
+
+class PeticionEntraria(Contexto):
+    model_config = ConfigDict(json_schema_extra={"example": {
+        "personas": ["ander", "daniel"], "ignorar_horario": True,
+        "canciones": [{"artista": "Nombre del artista", "album": "Nombre del álbum", "cancion": "Canción que nadie ha escuchado"}]}})
+    personas: list[str] = Field(..., min_length=1, max_length=10, description="miembros del grupo que viajan")
+    canciones: list[CancionNueva] = Field(..., min_length=1, max_length=50)
+    ignorar_horario: bool = Field(True, description="true (por defecto): media de los 12 contextos; false: indica "
+                                                    "«franja» y «tipo_dia» o «fecha_hora»")
+
+    def necesita_contexto(self) -> bool:
+        return not self.ignorar_horario
+
+
+class MiembroNovedad(BaseModel):
+    probabilidad_adopcion: float = Field(..., description="probabilidad de que la vuelva a escuchar sin saltarla en 90 días")
+    percentil: float = Field(..., description="frente a las canciones nuevas que esa persona escuchó en los últimos 12 meses")
+    escuchas_artista: int = Field(..., description="veces que ha escuchado al artista")
+    ya_la_conoce: bool = Field(..., description="ya ha escuchado esta canción (entonces no es nueva para esa persona)")
+
+
+class ResultadoEntraria(BaseModel):
+    track_id: str
+    cancion: Optional[str]
+    artista: str
+    album: str
+    en_catalogo: bool = Field(..., description="alguien del grupo la ha escuchado alguna vez")
+    percentil_grupo: float = Field(..., description="mínimo de los percentiles de los miembros")
+    entra: bool
+    motivo: str
+    miembros: dict[str, MiembroNovedad]
+
+
+class RespuestaEntraria(BaseModel):
+    personas: list[str]
+    franja: Optional[int] = Field(..., description="null si se ignora el horario")
+    franja_horas: str
+    tipo_dia: str
+    regla: str
+    umbral_percentil: float
+    huecos_novedades: int = Field(..., description="puestos para canciones nuevas en una playlist de n_lista "
+                                                   "(50 × apertura del miembro menos abierto, entre 2 y 10)")
+    n_lista: int
+    datos_hasta: str
+    resultados: list[ResultadoEntraria]
+
+
 class Error(BaseModel):
     error: str
     detalle: Optional[Any] = None
