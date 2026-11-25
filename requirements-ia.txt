@@ -1,0 +1,9 @@
+# Versiones con las que se ejecutó notebooks/07_mejoras_temporal.ipynb (Google Colab, Python 3.13.18, 2026-11-25)
+# Instalar con: pip install -r requirements-ia.txt
+pandas==2.2.3
+numpy==2.4.6
+scipy==1.16.3
+scikit-learn==1.6.1
+matplotlib==3.10.0
+mlflow==3.18.0
+joblib==1.6.0
