@@ -1,0 +1,4 @@
+Pipeline iniciado: 2026-11-19 08:53:23
+
+== 1/6 Entorno ==
+[ERROR] hiveserver2 está 'starting'. Arranca el entorno con: docker compose -f docker/docker-compose.yml up -d

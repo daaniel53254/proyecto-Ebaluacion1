@@ -53,7 +53,12 @@ class Servicio:
         if faltan:
             raise FileNotFoundError(f"Faltan {', '.join(faltan)} en {carpeta}: ejecuta antes «python -m api.preparar_datos»")
         paquete = joblib.load(carpeta / "modelo.joblib")
-        modelo, origen = paquete["modelo"], "joblib (api/datos/modelo.joblib)"
+        ruta = (carpeta / "modelo.joblib").resolve()
+        try:
+            ruta = ruta.relative_to(Path.cwd().resolve())
+        except ValueError:                              # fuera de la carpeta actual: ruta completa
+            pass
+        modelo, origen = paquete["modelo"], f"joblib ({ruta.as_posix()})"
         info = dict(paquete.get("info", {}))
         if usar_mlflow is None:
             usar_mlflow = bool(os.environ.get("MLFLOW_TRACKING_URI"))
