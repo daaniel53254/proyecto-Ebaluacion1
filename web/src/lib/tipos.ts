@@ -119,37 +119,8 @@ export type CancionCatalogo = {
   personas: Record<string, number>;
 };
 
-export type PeticionCancion = PeticionPlaylist & { track_id: string };
-
-export type GustoCancion = {
-  // Real si tiene 3 o más escuchas sin horario (5 en un contexto concreto); si no, la prevista por el modelo (objetivo 1).
-  tasa_no_salto: number;
-  percentil: number;
-  origen: Origen;
-  escuchas: number;
-};
-
-export type RespuestaCancion = {
-  track_id: string;
-  cancion: string;
-  artista: string;
-  personas: string[];
-  franja: number | null;
-  franja_horas: string;
-  tipo_dia: string;
-  entra: boolean;
-  artista_excluido: boolean;
-  cancion_excluida: boolean;
-  posicion: number | null;
-  n_candidatas: number;
-  n_canciones_playlist: number;
-  gusto_grupo: number | null;
-  conocida_por_todos: boolean;
-  miembros: Record<string, GustoCancion>;
-};
-
 // «¿Entraría una canción que nadie ha escuchado?» (POST /objetivo2/entraria).
-export type PeticionNovedad = { personas: string[]; artista: string; album: string; cancion: string };
+export type PeticionNovedad = { personas: string[]; cancion: string; artista: string };
 
 export type GustoNovedad = {
   probabilidad_adopcion: number;

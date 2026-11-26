@@ -191,7 +191,7 @@ En Windows con Anaconda basta con hacer doble clic en `api/arrancar_api.bat`. Si
 | `POST /objetivo2/cancion` | ¿Entraría una canción que **el grupo ya conoce** en esa playlist? Recibe el `track_id` y los mismos filtros que `/objetivo2/playlist`; devuelve si entra, su puesto, cuántas candidatas hay y la tasa de no salto de cada miembro (real con 5 o más escuchas, si no prevista). Es el paso 4 de la web. Para canciones que nadie ha escuchado, `/objetivo2/entraria`. |
 | `GET /canciones?buscar=...` | Buscador: canciones que alguien del grupo ha escuchado y cuyo título o artista contiene el texto (sin tildes ni mayúsculas), las más escuchadas primero, con las escuchas de cada persona. |
 | `GET /artistas` | Artistas del grupo; con `?por_persona=true`, cada uno con las escuchas de cada persona que lo tiene en su historial. |
-| `POST /objetivo2/entraria` | ¿Entraría en la playlist una canción que **nadie ha escuchado**? Basta con el `artista` (y si puedes el `album`). Para cada miembro, probabilidad de que la adopte (la vuelva a escuchar sin saltarla en 90 días) según su apertura a lo nuevo y lo que conoce del artista, en percentil frente a sus novedades de los últimos 12 meses; entra si el mínimo del grupo es 0,80 o más. Devuelve también los `huecos_novedades` de una playlist de 50. Modelo del notebook 08 (`api/novedades.py`). |
+| `POST /objetivo2/entraria` | ¿Entraría en la playlist una canción que **nadie ha escuchado**? Basta con el título (`cancion`); el `artista` es opcional. Para cada miembro, probabilidad de que la adopte (la vuelva a escuchar sin saltarla en 90 días) según su apertura a lo nuevo y lo que conoce del artista, en percentil frente a sus novedades de los últimos 12 meses; entra si el mínimo del grupo es 0,80 o más. Devuelve también los `huecos_novedades` de una playlist de 50. Modelo del notebook 08 (`api/novedades.py`). |
 | `GET /salud`, `/modelo`, `/personas`, `/contextos` | Estado, modelo cargado, miembros y contextos válidos. |
 
 Opciones de `POST /objetivo2/playlist`:
@@ -212,10 +212,10 @@ POST /objetivo2/playlist
 
 ```json
 POST /objetivo2/entraria
-{"personas": ["ander", "daniel"], "artista": "Nombre del artista", "album": "Nombre del álbum", "cancion": "Título"}
+{"personas": ["ander", "daniel"], "cancion": "Título de la canción", "artista": "Nombre del artista (opcional)"}
 ```
 
-Para una sola canción se escriben `artista`, `album` y `cancion` directamente; para varias, la lista `canciones` (`[{"artista": ..., "album": ...}]`). La web lo usa en el paso 4, en «¿Y una canción que nadie ha escuchado?».
+Para una sola canción basta el título (`cancion`); el `artista` es opcional y afina el resultado, y si la canción está en el catálogo del grupo se saca de ahí. Sin artista y fuera del catálogo, el modelo solo usa lo general de cada persona. Para varias canciones, la lista `canciones` (`[{"cancion": ..., "artista": ...}]`). La web lo usa en el paso 4.
 
 Los errores devuelven siempre `{"error": ..., "detalle": ...}`: 403 si falta el token o no coincide, 404 si la persona o la canción no existen, 413 si el fichero es demasiado grande, 422 si la entrada no es válida (también sin consentimiento o con menos de 16 años) y 503 si el modelo no está listo.
 

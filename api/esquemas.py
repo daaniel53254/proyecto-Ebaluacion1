@@ -187,7 +187,7 @@ class CancionNueva(BaseModel):
     track_id: Optional[str] = Field(None, min_length=1, max_length=64,
                                     description="id de Spotify si lo sabes; si está en el catálogo no hace falta nada más")
     artista: Optional[str] = Field(None, min_length=1, max_length=200,
-                                   description="obligatorio si la canción no está en el catálogo (escrito como en Spotify)")
+                                   description="opcional: sin él se busca el título en el catálogo del grupo")
     album: Optional[str] = Field(None, max_length=200)
     cancion: Optional[str] = Field(None, max_length=200, description="solo para mostrarla en la respuesta")
 
@@ -195,14 +195,14 @@ class CancionNueva(BaseModel):
 class PeticionEntraria(Contexto):
     model_config = ConfigDict(json_schema_extra={"example": {
         "personas": ["ander", "daniel"], "ignorar_horario": True,
-        "artista": "Nombre del artista", "album": "Nombre del álbum", "cancion": "Canción que nadie ha escuchado"}})
+        "cancion": "Título de la canción", "artista": "Nombre del artista (opcional)"}})
     personas: list[str] = Field(..., min_length=1, max_length=10, description="miembros del grupo que viajan")
     canciones: Optional[list[CancionNueva]] = Field(None, min_length=1, max_length=50,
                                                     description="varias canciones; o usa artista, album y cancion para una sola")
     artista: Optional[str] = Field(None, min_length=1, max_length=200,
-                                   description="una sola canción: artista (escrito como en Spotify)")
-    album: Optional[str] = Field(None, max_length=200, description="una sola canción: álbum")
-    cancion: Optional[str] = Field(None, max_length=200, description="una sola canción: título")
+                                   description="una sola canción: artista, opcional (afina el resultado)")
+    album: Optional[str] = Field(None, max_length=200, description="una sola canción: álbum, opcional")
+    cancion: Optional[str] = Field(None, max_length=200, description="una sola canción: título (lo principal)")
     track_id: Optional[str] = Field(None, min_length=1, max_length=64, description="una sola canción: id de Spotify")
     ignorar_horario: bool = Field(True, description="true (por defecto): media de los 12 contextos; false: indica "
                                                     "«franja» y «tipo_dia» o «fecha_hora»")
@@ -210,8 +210,8 @@ class PeticionEntraria(Contexto):
     @model_validator(mode="after")
     def _una_o_varias_canciones(self):
         if self.canciones is None:
-            if not (self.artista or self.track_id):
-                raise ValueError("Indica artista (y álbum) de la canción, o una lista «canciones»")
+            if not (self.cancion or self.artista or self.track_id):
+                raise ValueError("Indica el título de la canción (y si puedes el artista), o una lista «canciones»")
             self.canciones = [CancionNueva(track_id=self.track_id, artista=self.artista, album=self.album, cancion=self.cancion)]
         return self
 

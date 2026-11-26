@@ -19,7 +19,7 @@ type ResultadoProps = { estado: EstadoNovedad };
 const Resultado: FC<ResultadoProps> = ({ estado }) => {
   switch (estado.tipo) {
     case "sin_consultar":
-      return <p className="text-tinta-2">Escribe el artista (y el álbum, si lo sabes) y pulsa «¿Entraría?».</p>;
+      return <p className="text-tinta-2">Escribe el título de la canción (y el artista, si lo sabes) y pulsa «¿Entraría?».</p>;
     case "consultando":
       return (
         <p role="status" className="text-tinta-2">
@@ -57,6 +57,11 @@ const Resultado: FC<ResultadoProps> = ({ estado }) => {
             </p>
             <p className="text-tinta">{resultado.motivo}</p>
             <p className="text-sm text-tinta-2">Entra si todos están en el percentil {percentilVisible(umbral)} o más.</p>
+            {estado.sinArtista && (
+              <p className="text-sm text-tinta-2">
+                Sin artista, el modelo solo conoce lo general de cada persona: pon también el artista para afinar.
+              </p>
+            )}
           </div>
           <ul aria-label="Gusto previsto de cada uno" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Object.entries(resultado.miembros).map(([persona, gusto]) => {
@@ -86,22 +91,33 @@ type NovedadCancionProps = { personas: string[] };
 
 export const NovedadCancion: FC<NovedadCancionProps> = ({ personas }) => {
   const id = useId();
-  const { artista, setArtista, album, setAlbum, cancion, setCancion, estado, comprobar } = useNovedad(personas);
+  const { cancion, setCancion, artista, setArtista, estado, comprobar } = useNovedad(personas);
   return (
     <section aria-labelledby={`${id}-titulo`} className={tarjeta({ class: "flex flex-col gap-5 p-6 sm:p-8" })}>
       <div className="flex flex-col gap-2">
-        <Etiqueta>Una canción nueva</Etiqueta>
+        <Etiqueta>La canción</Etiqueta>
         <h2 id={`${id}-titulo`} className="font-display text-2xl font-bold tracking-tight">
-          ¿Y una canción que nadie ha escuchado?
+          ¿Qué canción quieres poner?
         </h2>
         <p className="max-w-2xl text-sm text-tinta-2">
-          Escribe una canción (aunque nadie del grupo la tenga) y el modelo dice si entraría para {personas.join(", ")},
-          sin mirar el horario.
+          Vale cualquier canción, la haya escuchado alguien del grupo o no. El modelo dice si entraría para{" "}
+          {personas.join(", ")}, sin mirar el horario.
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm font-semibold text-tinta">
-          Artista
+          Canción
+          <input
+            className={CAMPO}
+            value={cancion}
+            onChange={(e) => setCancion(e.target.value)}
+            placeholder="p. ej. Berghain"
+            autoComplete="off"
+            required
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-semibold text-tinta">
+          Artista (opcional, afina el resultado)
           <input
             className={CAMPO}
             value={artista}
@@ -110,32 +126,12 @@ export const NovedadCancion: FC<NovedadCancionProps> = ({ personas }) => {
             autoComplete="off"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm font-semibold text-tinta">
-          Álbum (opcional)
-          <input
-            className={CAMPO}
-            value={album}
-            onChange={(e) => setAlbum(e.target.value)}
-            placeholder="p. ej. LUX"
-            autoComplete="off"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-semibold text-tinta">
-          Título (opcional)
-          <input
-            className={CAMPO}
-            value={cancion}
-            onChange={(e) => setCancion(e.target.value)}
-            placeholder="p. ej. Berghain"
-            autoComplete="off"
-          />
-        </label>
       </div>
       <div>
         <button
           type="button"
           onClick={() => void comprobar()}
-          disabled={artista.trim() === "" || estado.tipo === "consultando"}
+          disabled={cancion.trim() === "" || estado.tipo === "consultando"}
           className={boton({ intencion: "principal", class: "min-h-11 px-6" })}
         >
           ¿Entraría?

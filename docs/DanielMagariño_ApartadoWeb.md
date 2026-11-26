@@ -61,20 +61,20 @@ El orden de la playlist es el de la API: el mínimo de los percentiles, con dese
 [Figura: `web_6_playlist_exportar.png`]
 *Web · cuánto le gusta la playlist a cada uno y exportación con «Copiar enlaces».*
 
-**¿Entraría esta canción? (paso 4).** Une los dos objetivos en una pregunta que se entiende sin saber nada del modelo. Se busca una canción, se eligen los filtros (los mismos del paso 3) y la web llama a `POST /objetivo2/cancion`, que devuelve:
+**¿Entraría esta canción? (paso 4).** Une los dos objetivos en una pregunta que se entiende sin saber nada del modelo. Se eligen las personas que viajan, se escribe **cualquier canción** (el título es obligatorio y el artista, opcional, afina el resultado) y la web llama a `POST /objetivo2/entraria`, que devuelve:
 
-- si **entraría** en la playlist y en qué puesto quedaría; si no entra, cuántos puestos le faltan, o si es porque se ha quitado su artista o la propia canción;
-- la **tasa de no salto de cada persona** (objetivo 1): la real si la ha escuchado 3 o más veces (5 si eliges un momento concreto) y, si no, la que predice el modelo (barra rayada), con sus escuchas y su percentil.
+- si **entraría** y el motivo: entra si ninguno de los miembros baja del percentil 0,80 frente a las canciones nuevas que escuchó en los últimos 12 meses;
+- por cada persona, el **percentil**, la **probabilidad de que la adopte** (la vuelva a escuchar sin saltarla en 90 días) y cuántas veces ha escuchado al artista.
 
-El puesto sale del mismo orden que la playlist del paso 3, así que las dos páginas nunca se contradicen. De momento solo se pueden comprobar canciones que alguien del grupo ha escuchado; Ander está preparando la búsqueda en otras fuentes para poder comprobar cualquier canción.
+Vale la haya escuchado alguien del grupo o no: si el título está en el catálogo, se saca de ahí el artista; si no, se usa el artista escrito, y sin artista el modelo solo conoce lo general de cada persona (la web avisa). No se comprueba que la canción exista en Spotify. Ander propone hacerlo como mejora futura (`comprobar_cancion_spotify.md`).
 
 [Figura: `web_7_cancion_buscar.png`]
-*Web · paso 4, «¿Entraría?»: búsqueda de una canción, con quién del grupo la escucha.*
+*Web · paso 4, «¿Entraría?»: versión anterior, que solo buscaba canciones conocidas por el grupo (la captura está pendiente de actualizar).*
 
 [Figura: `web_8_cancion_respuesta.png`]
 *Web · paso 4: la canción entraría en el puesto 19 de 30 con los filtros del paso 3, y la tasa de no salto de cada persona (objetivo 1).*
 
-**Cambios en la API para la web.** Además de CORS para la web, se añadieron `GET /artistas?por_persona=true` (artistas con las escuchas de cada persona), `GET /canciones` (buscador de canciones conocidas por el grupo), `POST /objetivo2/cancion` y, en la playlist, los campos `franjas` (varias franjas seguidas) y `excluir_canciones`. Sin esos campos, la playlist da exactamente lo mismo que antes.
+**Cambios en la API para la web.** Además de CORS para la web, se añadieron `GET /artistas?por_persona=true` (artistas con las escuchas de cada persona), `GET /canciones` (buscador de canciones conocidas por el grupo), `POST /objetivo2/cancion` (sigue en la API, aunque la web ya no lo usa) y, en la playlist, los campos `franjas` (varias franjas seguidas) y `excluir_canciones`. Sin esos campos, la playlist da exactamente lo mismo que antes.
 
 **Cómo se arranca.** `arrancar_web.bat` arranca la API en `http://127.0.0.1:8000` y la web en `http://127.0.0.1:3000`, y abre el navegador. Usa una carpeta de demo aparte, `data/demo`, con copias de los historiales, para no tocar `data/raw` ni el modelo de `api/datos`. `arrancar_web.bat reiniciar` vuelve a empezar desde cero. La web se abre siempre como `127.0.0.1` y no como `localhost`, porque el token se guarda por dirección y la vuelta del inicio de sesión de Spotify está dada de alta con `127.0.0.1`.
 

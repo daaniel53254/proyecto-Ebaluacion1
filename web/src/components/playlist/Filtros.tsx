@@ -89,7 +89,7 @@ const Segmentos = <T extends string>({ leyenda, opciones, valor, alCambiar, desa
   );
 };
 
-type QuienViajaProps = {
+export type QuienViajaProps = {
   personas: string[];
   elegidas: string[];
   alAlternar: (persona: string) => void;
@@ -101,7 +101,7 @@ const textoQuienViaja = (elegidas: number, total: number): string => {
 };
 
 // Cada persona es un interruptor: elegida, con su color de fondo y una marca; fuera, con borde discontinuo y apagada.
-const QuienViaja: FC<QuienViajaProps> = ({ personas, elegidas, alAlternar }) => {
+export const QuienViaja: FC<QuienViajaProps> = ({ personas, elegidas, alAlternar }) => {
   return (
     <fieldset className="flex flex-col gap-3">
       <legend className={cn(TITULO, "mb-3")}>Quién viaja</legend>

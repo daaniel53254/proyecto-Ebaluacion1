@@ -413,6 +413,14 @@ class Servicio:
         return resultado
 
     # ------------------------------------------------- objetivo 2: canciones nuevas
+    @staticmethod
+    def _buscar_por_titulo(catalogo: pd.DataFrame, titulo: str, artista: str | None = None) -> str | None:
+        """track_id de la canción del catálogo con ese título (sin mirar mayúsculas ni tildes) y, si se da, ese artista."""
+        coincide = catalogo["cancion"].astype(str).map(_sin_tildes) == _sin_tildes(titulo.strip())
+        if artista:
+            coincide &= catalogo["artista"].astype(str).map(_sin_tildes) == _sin_tildes(artista.strip())
+        return str(catalogo.index[coincide][0]) if coincide.any() else None
+
     def entraria(self, personas: list[str], canciones: list[dict], franja: int | None = None,
                  tipo_dia: str | None = None) -> dict:
         """¿Entraría cada canción en la playlist del grupo? Pensado para canciones que nadie ha escuchado (notebook 08).
@@ -436,15 +444,18 @@ class Servicio:
         filas, errores = [], []
         for i, c in enumerate(canciones):
             tid = c.get("track_id")
+            if not tid and c.get("cancion"):
+                tid = self._buscar_por_titulo(catalogo, c["cancion"], c.get("artista"))
             if tid and tid in catalogo.index:
                 r = catalogo.loc[tid]
                 filas.append({"track_id": tid, "cancion": c.get("cancion") or r["cancion"], "artista": r["artista"],
                               "album": r["album"], "en_catalogo": True})
-            elif c.get("artista"):
-                filas.append({"track_id": tid or f"nueva_{i + 1}", "cancion": c.get("cancion"), "artista": c["artista"],
+            elif c.get("artista") or c.get("cancion"):
+                # Sin artista el modelo solo conoce lo general de cada persona: sale un resultado, pero menos fino.
+                filas.append({"track_id": tid or f"nueva_{i + 1}", "cancion": c.get("cancion"), "artista": c.get("artista") or "?",
                               "album": c.get("album") or "?", "en_catalogo": False})
             else:
-                errores.append({"posicion": i, "track_id": tid, "motivo": "canción fuera del catálogo: indica «artista» (y si puedes «album»)"})
+                errores.append({"posicion": i, "track_id": tid, "motivo": "indica el título de la canción (y si puedes el artista)"})
         if errores:
             raise ErrorEntrada("Hay canciones que no se pueden evaluar", 404, errores)
         df = pd.DataFrame(filas)

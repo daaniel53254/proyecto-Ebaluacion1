@@ -7,13 +7,11 @@ import type {
   CancionCatalogo,
   CancionPlaylist,
   EstadoPreparacion,
-  GustoCancion,
   GustoMiembro,
   Historial,
   Persona,
   Playlist,
   RespuestaSubida,
-  RespuestaCancion,
   RespuestaNovedad,
   ResumenSubida,
   Salud,
@@ -140,39 +138,6 @@ const esCancionCatalogo = (valor: unknown): valor is CancionCatalogo => {
 };
 
 export const esListaCancionesCatalogo = esListaDe(esCancionCatalogo);
-
-const esGustoCancion = (valor: unknown): valor is GustoCancion => {
-  if (!esObjeto(valor)) return false;
-  return (
-    typeof valor.tasa_no_salto === "number" &&
-    typeof valor.percentil === "number" &&
-    typeof valor.escuchas === "number" &&
-    (valor.origen === "real" || valor.origen === "prevista")
-  );
-};
-
-export const esRespuestaCancion: Comprobacion<RespuestaCancion> = (valor): valor is RespuestaCancion => {
-  if (!esObjeto(valor)) return false;
-  return (
-    typeof valor.track_id === "string" &&
-    typeof valor.cancion === "string" &&
-    typeof valor.artista === "string" &&
-    esListaTextos(valor.personas) &&
-    esNumeroONulo(valor.franja) &&
-    typeof valor.franja_horas === "string" &&
-    typeof valor.tipo_dia === "string" &&
-    typeof valor.entra === "boolean" &&
-    typeof valor.artista_excluido === "boolean" &&
-    typeof valor.cancion_excluida === "boolean" &&
-    esNumeroONulo(valor.posicion) &&
-    typeof valor.n_candidatas === "number" &&
-    typeof valor.n_canciones_playlist === "number" &&
-    esNumeroONulo(valor.gusto_grupo) &&
-    typeof valor.conocida_por_todos === "boolean" &&
-    esObjeto(valor.miembros) &&
-    Object.values(valor.miembros).every(esGustoCancion)
-  );
-};
 
 export const esCancionPlaylist: Comprobacion<CancionPlaylist> = (valor): valor is CancionPlaylist => {
   if (!esObjeto(valor)) return false;
