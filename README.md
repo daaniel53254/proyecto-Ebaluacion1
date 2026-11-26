@@ -212,8 +212,10 @@ POST /objetivo2/playlist
 
 ```json
 POST /objetivo2/entraria
-{"personas": ["ander", "daniel"], "canciones": [{"artista": "Nombre del artista", "album": "Nombre del álbum"}]}
+{"personas": ["ander", "daniel"], "artista": "Nombre del artista", "album": "Nombre del álbum", "cancion": "Título"}
 ```
+
+Para una sola canción se escriben `artista`, `album` y `cancion` directamente; para varias, la lista `canciones` (`[{"artista": ..., "album": ...}]`). La web lo usa en el paso 4, en «¿Y una canción que nadie ha escuchado?».
 
 Los errores devuelven siempre `{"error": ..., "detalle": ...}`: 403 si falta el token o no coincide, 404 si la persona o la canción no existen, 413 si el fichero es demasiado grande, 422 si la entrada no es válida (también sin consentimiento o con menos de 16 años) y 503 si el modelo no está listo.
 

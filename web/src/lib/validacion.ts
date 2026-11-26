@@ -14,6 +14,7 @@ import type {
   Playlist,
   RespuestaSubida,
   RespuestaCancion,
+  RespuestaNovedad,
   ResumenSubida,
   Salud,
 } from "@/lib/tipos";
@@ -208,5 +209,39 @@ export const esPlaylist: Comprobacion<Playlist> = (valor): valor is Playlist => 
     typeof valor.duracion_total_min === "number" &&
     esListaCanciones(canciones) &&
     tieneATodos(canciones, personas)
+  );
+};
+
+const esGustoNovedad = (valor: unknown): boolean => {
+  if (!esObjeto(valor)) return false;
+  return (
+    typeof valor.probabilidad_adopcion === "number" &&
+    typeof valor.percentil === "number" &&
+    typeof valor.escuchas_artista === "number" &&
+    typeof valor.ya_la_conoce === "boolean"
+  );
+};
+
+const esResultadoNovedad = (valor: unknown): boolean => {
+  if (!esObjeto(valor)) return false;
+  return (
+    typeof valor.artista === "string" &&
+    typeof valor.album === "string" &&
+    typeof valor.percentil_grupo === "number" &&
+    typeof valor.entra === "boolean" &&
+    typeof valor.motivo === "string" &&
+    esObjeto(valor.miembros) &&
+    Object.values(valor.miembros).every(esGustoNovedad)
+  );
+};
+
+export const esRespuestaNovedad: Comprobacion<RespuestaNovedad> = (valor): valor is RespuestaNovedad => {
+  if (!esObjeto(valor)) return false;
+  return (
+    esListaTextos(valor.personas) &&
+    typeof valor.umbral_percentil === "number" &&
+    Array.isArray(valor.resultados) &&
+    valor.resultados.length > 0 &&
+    valor.resultados.every(esResultadoNovedad)
   );
 };

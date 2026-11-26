@@ -2,6 +2,7 @@
 
 import { type FC, useId } from "react";
 
+import { NovedadCancion } from "@/components/cancion/NovedadCancion";
 import { Filtros } from "@/components/playlist/Filtros";
 import { SinDatos } from "@/components/playlist/PanelPlaylist";
 import { boton, tarjeta } from "@/components/ui/estilos";
@@ -333,6 +334,7 @@ export const PanelCancion: FC = () => {
         }}
       />
       <ZonaRespuesta consulta={consulta} personasModelo={carga.personas} />
+      <NovedadCancion personas={estado.filtros.personas} />
     </div>
   );
 };

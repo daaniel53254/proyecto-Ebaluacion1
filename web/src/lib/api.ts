@@ -6,9 +6,11 @@ import type {
   Historial,
   Persona,
   PeticionCancion,
+  PeticionNovedad,
   PeticionPlaylist,
   Playlist,
   RespuestaCancion,
+  RespuestaNovedad,
   RespuestaSubida,
   Salud,
 } from "@/lib/tipos";
@@ -23,6 +25,7 @@ import {
   esObjeto,
   esPlaylist,
   esRespuestaCancion,
+  esRespuestaNovedad,
   esRespuestaSubida,
   esSalud,
 } from "@/lib/validacion";
@@ -151,5 +154,14 @@ export const pedirPlaylist = (peticion: PeticionPlaylist): Promise<Playlist> => 
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(peticion),
+  });
+};
+
+// Canción que nadie ha escuchado: se indica a mano (artista, álbum y título) y se comprueba sin mirar el horario.
+export const consultarNovedad = (peticion: PeticionNovedad): Promise<RespuestaNovedad> => {
+  return pedir("/objetivo2/entraria", esRespuestaNovedad, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...peticion, ignorar_horario: true }),
   });
 };

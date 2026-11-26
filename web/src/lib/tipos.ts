@@ -147,3 +147,25 @@ export type RespuestaCancion = {
   conocida_por_todos: boolean;
   miembros: Record<string, GustoCancion>;
 };
+
+// «¿Entraría una canción que nadie ha escuchado?» (POST /objetivo2/entraria).
+export type PeticionNovedad = { personas: string[]; artista: string; album: string; cancion: string };
+
+export type GustoNovedad = {
+  probabilidad_adopcion: number;
+  percentil: number;
+  escuchas_artista: number;
+  ya_la_conoce: boolean;
+};
+
+export type ResultadoNovedad = {
+  cancion: string | null;
+  artista: string;
+  album: string;
+  percentil_grupo: number;
+  entra: boolean;
+  motivo: string;
+  miembros: Record<string, GustoNovedad>;
+};
+
+export type RespuestaNovedad = { personas: string[]; umbral_percentil: number; resultados: ResultadoNovedad[] };
