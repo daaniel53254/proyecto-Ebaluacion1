@@ -5,10 +5,10 @@ import type {
   EstadoPreparacion,
   Historial,
   Persona,
-  PeticionCancion,
+  PeticionNovedad,
   PeticionPlaylist,
   Playlist,
-  RespuestaCancion,
+  RespuestaNovedad,
   RespuestaSubida,
   Salud,
 } from "@/lib/tipos";
@@ -22,7 +22,7 @@ import {
   esListaTextos,
   esObjeto,
   esPlaylist,
-  esRespuestaCancion,
+  esRespuestaNovedad,
   esRespuestaSubida,
   esSalud,
 } from "@/lib/validacion";
@@ -102,14 +102,6 @@ export const buscarCanciones = (texto: string, senal?: AbortSignal): Promise<Can
   return pedir(`/canciones?${consulta.toString()}`, esListaCancionesCatalogo, { signal: senal });
 };
 
-export const consultarCancion = (peticion: PeticionCancion): Promise<RespuestaCancion> => {
-  return pedir("/objetivo2/cancion", esRespuestaCancion, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(peticion),
-  });
-};
-
 export const obtenerPreparacion = (): Promise<EstadoPreparacion> => {
   return pedir("/preparacion", esEstadoPreparacion);
 };
@@ -151,5 +143,16 @@ export const pedirPlaylist = (peticion: PeticionPlaylist): Promise<Playlist> => 
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(peticion),
+  });
+};
+
+// Cualquier canción, la haya escuchado alguien o no: se indica el título (y el artista, si se sabe) y se comprueba sin
+// mirar el horario.
+export const consultarNovedad = (peticion: PeticionNovedad): Promise<RespuestaNovedad> => {
+  const { personas, cancion, artista } = peticion;
+  return pedir("/objetivo2/entraria", esRespuestaNovedad, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ personas, cancion, ...(artista === "" ? {} : { artista }), ignorar_horario: true }),
   });
 };

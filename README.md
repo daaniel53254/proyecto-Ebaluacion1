@@ -191,7 +191,7 @@ En Windows con Anaconda basta con hacer doble clic en `api/arrancar_api.bat`. Si
 | `POST /objetivo2/cancion` | ¿Entraría una canción que **el grupo ya conoce** en esa playlist? Recibe el `track_id` y los mismos filtros que `/objetivo2/playlist`; devuelve si entra, su puesto, cuántas candidatas hay y la tasa de no salto de cada miembro (real con 5 o más escuchas, si no prevista). Es el paso 4 de la web. Para canciones que nadie ha escuchado, `/objetivo2/entraria`. |
 | `GET /canciones?buscar=...` | Buscador: canciones que alguien del grupo ha escuchado y cuyo título o artista contiene el texto (sin tildes ni mayúsculas), las más escuchadas primero, con las escuchas de cada persona. |
 | `GET /artistas` | Artistas del grupo; con `?por_persona=true`, cada uno con las escuchas de cada persona que lo tiene en su historial. |
-| `POST /objetivo2/entraria` | ¿Entraría en la playlist una canción que **nadie ha escuchado**? Basta con el `artista` (y si puedes el `album`). Para cada miembro, probabilidad de que la adopte (la vuelva a escuchar sin saltarla en 90 días) según su apertura a lo nuevo y lo que conoce del artista, en percentil frente a sus novedades de los últimos 12 meses; entra si el mínimo del grupo es 0,80 o más. Devuelve también los `huecos_novedades` de una playlist de 50. Modelo del notebook 08 (`api/novedades.py`). |
+| `POST /objetivo2/entraria` | ¿Entraría en la playlist una canción que **nadie ha escuchado**? Basta con el título (`cancion`); el `artista` es opcional. Para cada miembro, probabilidad de que la adopte (la vuelva a escuchar sin saltarla en 90 días) según su apertura a lo nuevo y lo que conoce del artista, en percentil frente a sus novedades de los últimos 12 meses; entra si el mínimo del grupo es 0,80 o más. Devuelve también los `huecos_novedades` de una playlist de 50. Modelo del notebook 08 (`api/novedades.py`). |
 | `GET /salud`, `/modelo`, `/personas`, `/contextos` | Estado, modelo cargado, miembros y contextos válidos. |
 
 Opciones de `POST /objetivo2/playlist`:
@@ -199,7 +199,7 @@ Opciones de `POST /objetivo2/playlist`:
 | Campo | Valores | Qué hace |
 | --- | --- | --- |
 | `historial` | `"18_meses"` (por defecto) o `"completo"` | Con `"completo"`, las candidatas salen de todo el historial (3 o más escuchas del grupo), el gusto mezcla lo real con lo previsto, `(no saltos + 5 × prevista) / (escuchas + 5)`, y cada miembro conoce al menos un tercio de la lista. Se evalúa en la sección 8 del notebook 07. |
-| `ignorar_horario` | `false` (por defecto) o `true` | No filtra por franja ni tipo de día y pone primero las canciones que conoce todo el grupo. |
+| `ignorar_horario` | `false` (por defecto) o `true` | No filtra por franja ni tipo de día. Solo entran canciones que ha escuchado al menos la mitad del grupo (2 de 3, 3 de 5); a quien no la conoce, el modelo le predice el gusto. Ordena primero las canciones que nadie tiene por debajo del percentil 0,20; dentro, las de gusto real de todos (3 o más escuchas) antes que las previstas, y de mayor a menor media de los percentiles menos su dispersión entre miembros. |
 | `detalle_miembros` | `true` (por defecto) o `false` | Con `false` la respuesta no trae el gusto de cada miembro por cada canción. |
 | `desempate` | `"media"` (por defecto) o `"media_y_escuchas"` | Cómo se deshacen los empates; la segunda opción no está evaluada. |
 | `franjas` | lista de franjas seguidas, p. ej. `[5, 0]` | Varias franjas en lugar de una (con `tipo_dia`); la web las usa para «mañana», «tarde» y «noche». |
@@ -212,8 +212,10 @@ POST /objetivo2/playlist
 
 ```json
 POST /objetivo2/entraria
-{"personas": ["ander", "daniel"], "canciones": [{"artista": "Nombre del artista", "album": "Nombre del álbum"}]}
+{"personas": ["ander", "daniel"], "cancion": "Título de la canción", "artista": "Nombre del artista (opcional)"}
 ```
+
+Para una sola canción basta el título (`cancion`); el `artista` es opcional y afina el resultado, y si la canción está en el catálogo del grupo se saca de ahí. Sin artista y fuera del catálogo, el modelo solo usa lo general de cada persona. Para varias canciones, la lista `canciones` (`[{"cancion": ..., "artista": ...}]`). La web lo usa en el paso 4.
 
 Los errores devuelven siempre `{"error": ..., "detalle": ...}`: 403 si falta el token o no coincide, 404 si la persona o la canción no existen, 413 si el fichero es demasiado grande, 422 si la entrada no es válida (también sin consentimiento o con menos de 16 años) y 503 si el modelo no está listo.
 

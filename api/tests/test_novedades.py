@@ -147,6 +147,8 @@ def test_endpoint_entraria(cliente):
     r = cliente.post("/objetivo2/entraria", json={"personas": GRUPO, "ignorar_horario": False,
                                                   "fecha_hora": "2026-11-28T22:00", "canciones": [{"artista": "A01"}]})
     assert r.status_code == 200 and r.json()["franja"] == 5 and r.json()["tipo_dia"] == "fin_semana"
+    r = cliente.post("/objetivo2/entraria", json={"personas": GRUPO, "artista": "A01", "cancion": "Inventada"})   # una sola canción
+    assert r.status_code == 200 and [x["cancion"] for x in r.json()["resultados"]] == ["Inventada"]
 
 
 @pytest.mark.parametrize("cuerpo,codigo", [

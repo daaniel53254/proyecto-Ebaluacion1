@@ -69,7 +69,7 @@ app = FastAPI(
         "el mínimo de los percentiles y los empates se deshacen con la media. Con `\"historial\": \"completo\"` las "
         "candidatas salen de todo el historial (3 o más escuchas del grupo), el gusto mezcla lo real con lo previsto "
         "((no saltos + 5 × prevista) / (escuchas + 5)) y cada miembro conoce al menos un tercio de la lista; por defecto, "
-        "`\"18_meses\"`. Con `\"ignorar_horario\": true` no se filtra por franja ni tipo de día.\n"
+        "`\"18_meses\"`. Con `\"ignorar_horario\": true` no se filtra por franja ni tipo de día y la lista va por la media de los percentiles menos su dispersión, sin bajar del percentil 0,20 para nadie.\n"
         "- **Objetivo 2 · canciones nuevas** · `POST /objetivo2/entraria`: ¿entraría en la playlist una canción que nadie "
         "ha escuchado? Probabilidad de que cada miembro la adopte (notebook 08), en percentil frente a sus novedades; "
         "entra si el mínimo del grupo es 0,80 o más.\n\n"

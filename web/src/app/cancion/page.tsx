@@ -5,7 +5,7 @@ import { Etiqueta } from "@/components/ui/Etiqueta";
 
 export const metadata: Metadata = {
   title: "¿Entraría?",
-  description: "Elige una canción y mira si entraría en la playlist del grupo y cuántas veces la escucharía cada uno sin saltarla.",
+  description: "Escribe cualquier canción y mira si entraría en la playlist del grupo y qué percentil le saldría a cada uno.",
 };
 
 const PaginaCancion = () => {
@@ -18,8 +18,8 @@ const PaginaCancion = () => {
             ¿Entraría <span className="text-acento">esta canción</span>?
           </h1>
           <p className="max-w-xl text-lg leading-relaxed text-tinta-2">
-            Elige una canción, quién viaja y cuándo. Te decimos si entraría en vuestra playlist y cuántas veces la
-            escucharía cada uno sin saltarla.
+            Escribe una canción, la haya escuchado alguien o no, y elige quién viaja. Te decimos si entraría en vuestra
+            playlist y qué percentil le saldría a cada uno.
           </p>
         </div>
         <PanelCancion />

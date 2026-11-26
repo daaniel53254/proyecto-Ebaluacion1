@@ -26,7 +26,7 @@ export const PASOS = [
     ruta: "/playlist",
     titulo: "Vuestra playlist",
     descripcion:
-      "Elegid quién viaja y cuánto dura el trayecto. Cada canción vale lo que le gusta al que menos le gusta.",
+      "Elegid quién viaja y cuánto dura el trayecto. Arriba quedan las canciones que gustan a todos, sin dejar a nadie muy abajo.",
   },
   {
     numero: 4,

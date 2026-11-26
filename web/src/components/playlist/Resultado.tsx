@@ -46,7 +46,7 @@ const Leyenda: FC<LeyendaProps> = ({ personas, colorDe }) => {
       })}
       <li className="flex items-center gap-2">
         <span aria-hidden className={MUESTRA} style={estiloRelleno("real", COLOR_MUESTRA)} />
-        real (5 o más escuchas)
+        real (3 o más escuchas; 5 con un momento concreto)
       </li>
       <li className="flex items-center gap-2">
         <span aria-hidden className={MUESTRA} style={estiloRelleno("prevista", COLOR_MUESTRA)} />
@@ -85,8 +85,17 @@ export const Resultado: FC<ResultadoProps> = ({ playlist, personasModelo }) => {
       </div>
       <Cifras cifras={cifrasDe(playlist)} />
       <p className="max-w-2xl text-lg text-tinta-2">
-        Cada canción vale lo que le gusta <span className="text-acento">al que menos le gusta</span>. Las barras son
-        el percentil de cada uno (100 es de sus favoritas) y la blanca, la media del grupo.
+        {playlist.franja === null ? (
+          <>
+            Buscamos canciones que os gusten <span className="text-acento">parecido a todos</span>: la media de los
+            percentiles, sin dejar a nadie por debajo de 20 y con poca diferencia entre vosotros.
+          </>
+        ) : (
+          <>
+            Cada canción vale lo que le gusta <span className="text-acento">al que menos le gusta</span>.
+          </>
+        )}{" "}
+        Las barras son el percentil de cada uno (100 es de sus favoritas) y la blanca, la media del grupo.
       </p>
       <div className="flex flex-col gap-4">
         <Leyenda personas={playlist.personas} colorDe={colorDe} />

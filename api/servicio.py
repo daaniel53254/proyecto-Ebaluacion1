@@ -22,6 +22,8 @@ NOMBRE_REGISTRO = "playlist_tasa_no_salto"
 TIPOS_DIA = ("laborable", "fin_semana")
 SIN_HORARIO = "cualquiera"
 HISTORIALES = ("18_meses", "completo")
+MIN_ESCUCHAS_SIN_HORARIO = 3   # sin horario: escuchas de la canción (en total) para fiarse de la tasa real; con horario vale MIN_ESCUCHAS
+SUELO_SIN_HORARIO = 0.20       # sin horario: percentil mínimo para no quedar detrás de las que no dejan a nadie por debajo
 MIN_ESCUCHAS_CANDIDATA = 3   # historial completo: candidatas con 3 o más escuchas del grupo (sin las que sonaron de pasada)
 K_SUAVIZADO = 5              # historial completo: escuchas reales que pesan lo mismo que la predicción
 FRACCION_REPARTO = 1 / 3     # historial completo: cada miembro conoce al menos 1/3 de cualquier tramo inicial de la lista
@@ -219,7 +221,7 @@ class Servicio:
         n, ns = r["n_escuchas"].to_numpy(), r["n_no_salto"].to_numpy()
         f["escuchas_contexto"] = n
         f["tasa_real"] = np.where(n > 0, ns / np.maximum(n, 1), np.nan)
-        fiable = n >= MIN_ESCUCHAS
+        fiable = n >= (MIN_ESCUCHAS_SIN_HORARIO if franja is None else MIN_ESCUCHAS)
         if historial == "completo":
             f["gusto"] = (ns + K_SUAVIZADO * f["prevista"].to_numpy()) / (n + K_SUAVIZADO)
             f["origen"] = np.where(fiable, "real", np.where(n > 0, "mezcla", "prevista"))
@@ -273,14 +275,27 @@ class Servicio:
         catalogo = self._tablas(historial)[0]
         f["es_real"] = f["origen"].eq("real")
         g = (f.groupby("track_id")
-              .agg(gusto_grupo=("percentil", "min"), desempate=("percentil", "mean"), conocida_por_todos=("es_real", "all"))
+              .agg(gusto_grupo=("percentil", "min"), desempate=("percentil", "mean"),
+                   dispersion=("percentil", lambda x: float(np.std(x))), conocida_por_todos=("es_real", "all"))
               .join(catalogo[["cancion", "artista", "duracion_s", "escuchas_grupo"]]))
         if excluir_artistas:
             fuera = {a.casefold() for a in excluir_artistas}
             g = g[~g["artista"].str.casefold().isin(fuera)]
         if excluir_canciones:
             g = g[~g.index.isin(list(excluir_canciones))]
-        orden = (["conocida_por_todos"] if sin_horario else []) + ["gusto_grupo", "desempate"]
+        if sin_horario:
+            # Sin horario solo entran canciones que, como mínimo, la mitad del grupo (redondeando hacia arriba: 2 de 3,
+            # 3 de 5) ha escuchado alguna vez; al resto el modelo las predice a partir de quienes sí la conocen.
+            necesarios = -(-len(personas) // 2)
+            g = g[f.groupby("track_id")["conoce"].sum().reindex(g.index) >= necesarios]
+        # Sin horario: primero las que no dejan a nadie por debajo del suelo; dentro, las que todos tienen con gusto
+        # real y luego la media de los percentiles menos su dispersión (que nadie quede lejos del resto). Con horario se mantiene la regla evaluada (mínimo y desempate por la media).
+        if sin_horario:
+            g["sobre_suelo"] = g["gusto_grupo"] >= SUELO_SIN_HORARIO
+            g["puntuacion"] = g["desempate"] - g["dispersion"]
+            orden = ["sobre_suelo", "conocida_por_todos", "puntuacion", "gusto_grupo"]
+        else:
+            orden = ["gusto_grupo", "desempate"]
         if desempate == "media_y_escuchas":
             orden.append("escuchas_grupo")
         g = g.sort_values(orden, ascending=False)
@@ -335,7 +350,10 @@ class Servicio:
             regla = ("historial completo: gusto suavizado (no saltos reales + 5 × prevista) / (escuchas + 5); " + regla +
                      "; cada miembro conoce al menos 1/3 de la lista")
         if sin_horario:
-            regla = "sin horario: primero las canciones con gusto real de todos; después, " + regla
+            regla = ("sin horario: solo canciones que ha escuchado al menos la mitad del grupo (2 de 3, 3 de 5); "
+                     f"primero las que nadie tiene por debajo del percentil {SUELO_SIN_HORARIO:.2f}; "
+                     "dentro, las de gusto real de todos antes que las demás y de mayor a menor media de los percentiles "
+                     "menos su dispersión entre miembros")
         return {"personas": personas, "franja": None if sin_horario else _lista_franjas(franja)[0],
                 "franja_horas": SIN_HORARIO if sin_horario else _texto_franjas(franja),
                 "tipo_dia": SIN_HORARIO if sin_horario else tipo_dia, "historial": historial, "regla": regla,
@@ -395,6 +413,14 @@ class Servicio:
         return resultado
 
     # ------------------------------------------------- objetivo 2: canciones nuevas
+    @staticmethod
+    def _buscar_por_titulo(catalogo: pd.DataFrame, titulo: str, artista: str | None = None) -> str | None:
+        """track_id de la canción del catálogo con ese título (sin mirar mayúsculas ni tildes) y, si se da, ese artista."""
+        coincide = catalogo["cancion"].astype(str).map(_sin_tildes) == _sin_tildes(titulo.strip())
+        if artista:
+            coincide &= catalogo["artista"].astype(str).map(_sin_tildes) == _sin_tildes(artista.strip())
+        return str(catalogo.index[coincide][0]) if coincide.any() else None
+
     def entraria(self, personas: list[str], canciones: list[dict], franja: int | None = None,
                  tipo_dia: str | None = None) -> dict:
         """¿Entraría cada canción en la playlist del grupo? Pensado para canciones que nadie ha escuchado (notebook 08).
@@ -418,15 +444,18 @@ class Servicio:
         filas, errores = [], []
         for i, c in enumerate(canciones):
             tid = c.get("track_id")
+            if not tid and c.get("cancion"):
+                tid = self._buscar_por_titulo(catalogo, c["cancion"], c.get("artista"))
             if tid and tid in catalogo.index:
                 r = catalogo.loc[tid]
                 filas.append({"track_id": tid, "cancion": c.get("cancion") or r["cancion"], "artista": r["artista"],
                               "album": r["album"], "en_catalogo": True})
-            elif c.get("artista"):
-                filas.append({"track_id": tid or f"nueva_{i + 1}", "cancion": c.get("cancion"), "artista": c["artista"],
+            elif c.get("artista") or c.get("cancion"):
+                # Sin artista el modelo solo conoce lo general de cada persona: sale un resultado, pero menos fino.
+                filas.append({"track_id": tid or f"nueva_{i + 1}", "cancion": c.get("cancion"), "artista": c.get("artista") or "?",
                               "album": c.get("album") or "?", "en_catalogo": False})
             else:
-                errores.append({"posicion": i, "track_id": tid, "motivo": "canción fuera del catálogo: indica «artista» (y si puedes «album»)"})
+                errores.append({"posicion": i, "track_id": tid, "motivo": "indica el título de la canción (y si puedes el artista)"})
         if errores:
             raise ErrorEntrada("Hay canciones que no se pueden evaluar", 404, errores)
         df = pd.DataFrame(filas)

@@ -530,8 +530,8 @@ with tab_api:
         c = st.columns([1, 1, 1.2, 1.6])
         franja_a = c[0].selectbox("Franja", [None, *D.FRANJAS], index=0, key="api_franja",
                                   format_func=lambda f: "Sin importar" if f is None else f"{D.FRANJAS[f]} h",
-                                  help="«Sin importar» usa todas las escuchas, sin mirar la hora ni el día, y pone "
-                                       "primero las canciones que conoce todo el grupo.")
+                                  help="«Sin importar» usa todas las escuchas, sin mirar la hora ni el día, con canciones que ha escuchado al menos la mitad "
+                                       "del grupo, y ordena por la media de los percentiles menos su dispersión, sin bajar del percentil 0,20 para nadie.")
         sin_horario = franja_a is None
         tipo_a = c[1].selectbox("Día", list(D.TIPOS_DIA), index=1, format_func=D.TIPOS_DIA.get, key="api_tipo",
                                 disabled=sin_horario)
@@ -634,8 +634,9 @@ with tab_api:
             "historiales. Gusto de cada miembro: su tasa real de no salto si tiene 5 o más escuchas de la canción "
             "en ese contexto y, si no, la predicción del modelo; se pasa a percentil dentro de la persona. "
             "Gusto del grupo = el mínimo; los empates se deshacen con la media. Con la franja «Sin importar» "
-            "se suman las escuchas de todos los contextos, la predicción es la media de los 12 contextos y van "
-            "primero las canciones con gusto real de todos los miembros."
+            "se suman las escuchas de todos los contextos (gusto real con 3 o más), la predicción es la media de los 12 "
+            "contextos; solo entran canciones que ha escuchado al menos la mitad del grupo (2 de 3, 3 de 5) y la lista va por la media de los percentiles menos su dispersión: primero las que nadie "
+            "tiene por debajo del percentil 0,20 y, dentro, las de gusto real de todos antes que las previstas."
         )
         st.caption(f"Entrenado del {inf['periodo']['desde']} al {inf['periodo']['hasta']}; preparado el "
                    f"{inf['preparado'].replace('T', ' a las ')} ({srv.origen_modelo}). Como el periodo incluye el "

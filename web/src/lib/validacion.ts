@@ -7,13 +7,12 @@ import type {
   CancionCatalogo,
   CancionPlaylist,
   EstadoPreparacion,
-  GustoCancion,
   GustoMiembro,
   Historial,
   Persona,
   Playlist,
   RespuestaSubida,
-  RespuestaCancion,
+  RespuestaNovedad,
   ResumenSubida,
   Salud,
 } from "@/lib/tipos";
@@ -140,39 +139,6 @@ const esCancionCatalogo = (valor: unknown): valor is CancionCatalogo => {
 
 export const esListaCancionesCatalogo = esListaDe(esCancionCatalogo);
 
-const esGustoCancion = (valor: unknown): valor is GustoCancion => {
-  if (!esObjeto(valor)) return false;
-  return (
-    typeof valor.tasa_no_salto === "number" &&
-    typeof valor.percentil === "number" &&
-    typeof valor.escuchas === "number" &&
-    (valor.origen === "real" || valor.origen === "prevista")
-  );
-};
-
-export const esRespuestaCancion: Comprobacion<RespuestaCancion> = (valor): valor is RespuestaCancion => {
-  if (!esObjeto(valor)) return false;
-  return (
-    typeof valor.track_id === "string" &&
-    typeof valor.cancion === "string" &&
-    typeof valor.artista === "string" &&
-    esListaTextos(valor.personas) &&
-    esNumeroONulo(valor.franja) &&
-    typeof valor.franja_horas === "string" &&
-    typeof valor.tipo_dia === "string" &&
-    typeof valor.entra === "boolean" &&
-    typeof valor.artista_excluido === "boolean" &&
-    typeof valor.cancion_excluida === "boolean" &&
-    esNumeroONulo(valor.posicion) &&
-    typeof valor.n_candidatas === "number" &&
-    typeof valor.n_canciones_playlist === "number" &&
-    esNumeroONulo(valor.gusto_grupo) &&
-    typeof valor.conocida_por_todos === "boolean" &&
-    esObjeto(valor.miembros) &&
-    Object.values(valor.miembros).every(esGustoCancion)
-  );
-};
-
 export const esCancionPlaylist: Comprobacion<CancionPlaylist> = (valor): valor is CancionPlaylist => {
   if (!esObjeto(valor)) return false;
   return (
@@ -208,5 +174,39 @@ export const esPlaylist: Comprobacion<Playlist> = (valor): valor is Playlist => 
     typeof valor.duracion_total_min === "number" &&
     esListaCanciones(canciones) &&
     tieneATodos(canciones, personas)
+  );
+};
+
+const esGustoNovedad = (valor: unknown): boolean => {
+  if (!esObjeto(valor)) return false;
+  return (
+    typeof valor.probabilidad_adopcion === "number" &&
+    typeof valor.percentil === "number" &&
+    typeof valor.escuchas_artista === "number" &&
+    typeof valor.ya_la_conoce === "boolean"
+  );
+};
+
+const esResultadoNovedad = (valor: unknown): boolean => {
+  if (!esObjeto(valor)) return false;
+  return (
+    typeof valor.artista === "string" &&
+    typeof valor.album === "string" &&
+    typeof valor.percentil_grupo === "number" &&
+    typeof valor.entra === "boolean" &&
+    typeof valor.motivo === "string" &&
+    esObjeto(valor.miembros) &&
+    Object.values(valor.miembros).every(esGustoNovedad)
+  );
+};
+
+export const esRespuestaNovedad: Comprobacion<RespuestaNovedad> = (valor): valor is RespuestaNovedad => {
+  if (!esObjeto(valor)) return false;
+  return (
+    esListaTextos(valor.personas) &&
+    typeof valor.umbral_percentil === "number" &&
+    Array.isArray(valor.resultados) &&
+    valor.resultados.length > 0 &&
+    valor.resultados.every(esResultadoNovedad)
   );
 };
