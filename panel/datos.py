@@ -339,8 +339,7 @@ def gustos_desde_api(servicio, candidatas: pd.DataFrame) -> pd.DataFrame:
     base = c[["persona", "track_id", "artista", "album", "franja", "tipo_dia"]].copy()
     base["persona"] = base["persona"].map(nombre)
     base[["artista", "album"]] = base[["artista", "album"]].fillna("?")
-    f = servicio._filas(base)                    # variables de persona y grupo, como la API
-    prevista = servicio._predecir_filas(f)
+    prevista = servicio.prever_gusto(base)       # mismo cálculo que la API (variables de persona y grupo)
     g = c[["persona", "track_id", "franja", "tipo_dia"]].copy()
     real = c["tasa_real_lote1"]
     g["gusto"] = real.fillna(pd.Series(prevista, index=c.index))
