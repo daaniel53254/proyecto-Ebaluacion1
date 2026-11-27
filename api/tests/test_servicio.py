@@ -165,3 +165,25 @@ def test_buscar_canciones_dice_de_quien_son(servicio):
     encontradas = servicio.buscar_canciones(nombre)
     assert encontradas and all(c["personas"] and min(c["personas"].values()) > 0 for c in encontradas)
     assert all(set(c["personas"]) <= {"ana", "beñat"} for c in encontradas)
+
+
+def test_prever_gusto_igual_que_el_calculo_interno(servicio):
+    import pandas as pd
+    base = pd.DataFrame({"persona": ["ana", "beñat", "ana"], "track_id": ["t003", "t003", "nueva"],
+                         "artista": ["Artista 3", "Artista 3", "Artista 3"], "album": ["?", "?", "?"],
+                         "franja": [3, 3, 1], "tipo_dia": ["laborable", "laborable", "fin_semana"]})
+    p = servicio.prever_gusto(base)
+    assert len(p) == 3 and ((p >= 0) & (p <= 1)).all()
+    assert (p == servicio._predecir_filas(servicio._filas(base))).all()
+
+
+def test_prever_gusto_controla_la_entrada(servicio):
+    import pandas as pd
+    with pytest.raises(ErrorEntrada) as e:
+        servicio.prever_gusto(pd.DataFrame({"persona": ["ana"], "track_id": ["t003"]}))
+    assert "artista" in e.value.mensaje
+    base = pd.DataFrame({"persona": ["pepe"], "track_id": ["t003"], "artista": ["?"], "album": ["?"],
+                         "franja": [3], "tipo_dia": ["laborable"]})
+    with pytest.raises(ErrorEntrada) as e:
+        servicio.prever_gusto(base)
+    assert e.value.codigo == 404

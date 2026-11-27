@@ -136,6 +136,15 @@ class Servicio:
         X = matriz(f, codificar(f, self.recuentos))[self.columnas]
         return np.clip(np.asarray(self.modelo.predict(X), dtype=float).ravel(), 0, 1)
 
+    def prever_gusto(self, base: pd.DataFrame) -> np.ndarray:
+        """Tasa de no salto prevista para cada fila de `base` (persona, track_id, artista, album,
+        franja, tipo_dia). Es la forma pública de usar el modelo desde fuera de la API (el panel)."""
+        faltan = {"persona", "track_id", "artista", "album", "franja", "tipo_dia"} - set(base.columns)
+        if faltan:
+            raise ErrorEntrada(f"Faltan columnas: {', '.join(sorted(faltan))}")
+        self.comprobar_personas(sorted(base["persona"].unique()))
+        return self._predecir_filas(self._filas(base))
+
     def _real(self, f: pd.DataFrame):
         """Escuchas y tasa real de la persona con esa canción en ese contexto durante el periodo."""
         idx = pd.MultiIndex.from_frame(f[["persona", "track_id", "franja", "tipo_dia"]])
